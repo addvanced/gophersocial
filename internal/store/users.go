@@ -53,3 +53,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 func (s *UserStore) GetByID(ctx context.Context, userId int64) (*User, error) {
 	return nil, nil
 }
+
+func (s *UserStore) Delete(ctx context.Context, userId int64) error {
+	return nil
+}

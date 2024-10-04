@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+type ctxKey string
+
 type application struct {
 	config config
 	store  store.Storage
@@ -46,7 +48,11 @@ func (app *application) mount() http.Handler {
 			r.Post("/", app.createPostHandler)
 
 			r.Route("/{postId}", func(r chi.Router) {
+				r.Use(app.postsContextMiddleware)
+
 				r.Get("/", app.getPostHandler)
+				r.Patch("/", app.updatePostHandler)
+				r.Delete("/", app.deletePostHandler)
 			})
 		})
 	})
