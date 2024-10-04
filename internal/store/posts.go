@@ -15,10 +15,11 @@ type Post struct {
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	Tags      []string  `json:"tags"`
-	UserID    int64     `json:"user_id"` // TODO: Replace with UUID
+	UserID    int64     `json:"user_id"`
+	Comments  []Comment `json:"comments"`
+	Version   int       `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Comments  []Comment `json:"comments"`
 }
 
 type PostStore struct {
@@ -26,12 +27,15 @@ type PostStore struct {
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
-	query := `INSERT INTO posts (title, content, tags, user_id)
-				VALUES ($1, $2, $3, $4) 
-				RETURNING id, created_at, updated_at`
+	query := `
+		INSERT INTO posts (title, content, tags, user_id)
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id, version, created_at, updated_at
+	`
 
 	err := s.db.QueryRow(ctx, query, post.Title, post.Content, post.Tags, post.UserID).Scan(
 		&post.ID,
+		&post.Version,
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
@@ -44,13 +48,18 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
 	var post Post
 
-	query := `SELECT id, title, content, tags, user_id, created_at, updated_at FROM posts WHERE id = $1`
+	query := `
+		SELECT id, title, content, tags, user_id, version, created_at, updated_at 
+		FROM posts 
+		WHERE id = $1
+	`
 	err := s.db.QueryRow(ctx, query, postId).Scan(
 		&post.ID,
 		&post.Title,
 		&post.Content,
 		&post.Tags,
 		&post.UserID,
+		&post.Version,
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
@@ -66,15 +75,29 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
 }
 
 func (s *PostStore) Update(ctx context.Context, post *Post) error {
-	query := `UPDATE posts SET title = $1, content = $2, tags = $3 WHERE id = $4`
-	if _, err := s.db.Exec(ctx, query, post.Title, post.Content, post.Tags, post.ID); err != nil {
-		return err
+	query := `
+		UPDATE posts 
+		SET title = $1, content = $2, version = version + 1 
+		WHERE id = $3 AND version = $4 
+		RETURNING version
+	`
+
+	if err := s.db.QueryRow(ctx, query, post.Title, post.Content, post.ID, post.Version).Scan(&post.Version); err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrDirtyRecord
+		default:
+			return err
+		}
 	}
 	return nil
 }
 
 func (s *PostStore) Delete(ctx context.Context, postId int64) error {
-	query := `DELETE FROM posts WHERE id = $1`
+	query := `
+		DELETE FROM posts 
+		WHERE id = $1
+	`
 	res, err := s.db.Exec(ctx, query, postId)
 	if err != nil {
 		return err

@@ -52,7 +52,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := writeJSON(w, http.StatusCreated, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusCreated, post); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
@@ -67,7 +67,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	post.Comments = comments
 
-	if err := writeJSON(w, http.StatusOK, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
@@ -96,11 +96,15 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := app.store.Posts.Update(ctx, post); err != nil {
+		switch {
+		case errors.Is(err, store.ErrDirtyRecord):
+			app.conflictResponse(w, r, fmt.Errorf("post with ID '%d' has been modified by another user", post.ID))
+		}
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	if err := writeJSON(w, http.StatusOK, post); err != nil {
+	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }

@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("record not found")
+	ErrNotFound    = errors.New("record not found")
+	ErrDirtyRecord = errors.New("record has been modified")
 
 	// Post Errors
 	ErrCouldNotCreatePost = errors.New("could not create post")
