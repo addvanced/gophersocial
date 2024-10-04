@@ -26,3 +26,8 @@ migrate/up:
 migrate/down:
 	@echo "Running database 'down'-migration(s)..."
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_DSN) down $(filter-out $@,$(MAKECMDGOALS))
+
+.PHONY: database/seed
+database/seed:
+	@echo "Seeding database..."
+	@go run ./cmd/migrate/seed/main.go

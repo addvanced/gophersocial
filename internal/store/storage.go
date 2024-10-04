@@ -3,19 +3,17 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const QueryTimeoutDuration = 5 * time.Second
+
 var (
-	ErrNotFound    = errors.New("record not found")
-	ErrDirtyRecord = errors.New("record has been modified")
-
-	// Post Errors
-	ErrCouldNotCreatePost = errors.New("could not create post")
-
-	// User Errors
-	ErrCouldNotCreateUser = errors.New("could not create user")
+	ErrNotFound             = errors.New("record not found")
+	ErrDirtyRecord          = errors.New("record has been modified")
+	ErrCouldNotCreateRecord = errors.New("could not create record")
 )
 
 type Storage struct {
@@ -31,6 +29,7 @@ type Storage struct {
 		Delete(context.Context, int64) error
 	}
 	Comments interface {
+		Create(context.Context, *Comment) error
 		GetByPostID(context.Context, int64) ([]Comment, error)
 	}
 }

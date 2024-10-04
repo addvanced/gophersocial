@@ -27,6 +27,9 @@ type PostStore struct {
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	query := `
 		INSERT INTO posts (title, content, tags, user_id)
 		VALUES ($1, $2, $3, $4) 
@@ -40,12 +43,15 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 		&post.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrCouldNotCreatePost, err.Error())
+		return fmt.Errorf("%w: %s", ErrCouldNotCreateRecord, err.Error())
 	}
 	return nil
 }
 
 func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	var post Post
 
 	query := `
@@ -75,6 +81,9 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
 }
 
 func (s *PostStore) Update(ctx context.Context, post *Post) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	query := `
 		UPDATE posts 
 		SET title = $1, content = $2, version = version + 1 
@@ -94,10 +103,14 @@ func (s *PostStore) Update(ctx context.Context, post *Post) error {
 }
 
 func (s *PostStore) Delete(ctx context.Context, postId int64) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	query := `
 		DELETE FROM posts 
 		WHERE id = $1
 	`
+
 	res, err := s.db.Exec(ctx, query, postId)
 	if err != nil {
 		return err
