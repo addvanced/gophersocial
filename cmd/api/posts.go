@@ -12,14 +12,21 @@ import (
 )
 
 type CreatePostRequest struct {
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
+	Title   string   `json:"title" validate:"required,min=3,max=200"`
+	Content string   `json:"content" validate:"required,min=3,max=1000"`
 	Tags    []string `json:"tags"`
 }
 
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
 	var payload CreatePostRequest
 	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	ctx := r.Context()
+
+	if err := Validate.StructCtx(ctx, payload); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -32,7 +39,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		UserID: 1,
 	}
 
-	if err := app.store.Posts.Create(r.Context(), post); err != nil {
+	if err := app.store.Posts.Create(ctx, post); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -66,6 +73,14 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	comments, err := app.store.Comments.GetByPostID(ctx, post.ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	post.Comments = comments
 
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)

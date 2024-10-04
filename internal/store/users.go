@@ -17,11 +17,11 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-type UsersStore struct {
+type UserStore struct {
 	db *pgxpool.Pool
 }
 
-func (s *UsersStore) Create(ctx context.Context, user *User) error {
+func (s *UserStore) Create(ctx context.Context, user *User) error {
 	query := `
 		INSERT INTO users (username, password, email)
 		VALUES ($1, $2, $3) RETURNING id, created_at, updated_at
@@ -50,6 +50,6 @@ func (s *UsersStore) Create(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (s *UsersStore) GetByID(ctx context.Context, userId int64) (*User, error) {
+func (s *UserStore) GetByID(ctx context.Context, userId int64) (*User, error) {
 	return nil, nil
 }
