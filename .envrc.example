@@ -1,0 +1,17 @@
+# HTTP Server
+export ADDR=":8080"
+export TIMEOUT_WRITE="30s"
+export TIMEOUT_READ="10s"
+export TIMEOUT_IDLE="1m"
+
+# Database
+export DB_USER="socialuser"
+export DB_PASSWORD="socialpassword"
+export DB_HOST="localhost"
+export DB_PORT="5437"
+export DB_NAME="gophersocial"
+export DB_SSL_MODE="disable"
+
+export DB_MAX_OPEN_CONNS="10"
+export DB_MAX_IDLE_CONNS="10"
+export DB_MAX_LIFETIME_CONNS="15m"
