@@ -2,19 +2,22 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/lib/pq"
 )
 
 type Post struct {
-	PostgresEntity
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
-	Tags    []string `json:"tags"`
-	UserID  int64    `json:"user_id"` // TODO: Replace with UUID
+	ID        int64     `json:"id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Tags      []string  `json:"tags"`
+	UserID    int64     `json:"user_id"` // TODO: Replace with UUID
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type PostStore struct {
@@ -22,31 +25,41 @@ type PostStore struct {
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
-	query := `
-		INSERT INTO posts (title, content, tags, user_id)
-		VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
-	`
+	query := `INSERT INTO posts (title, content, tags, user_id)
+				VALUES ($1, $2, $3, $4) 
+				RETURNING id, created_at, updated_at`
 
-	newPost := Post{
-		Title:   post.Title,
-		Content: post.Content,
-		Tags:    post.Tags,
-		UserID:  post.UserID,
-	}
-	err := s.db.QueryRow(ctx, query,
-		post.Title,
-		post.Content,
-		pq.Array(post.Tags),
-		post.UserID,
-	).Scan(
-		&newPost.ID,
-		&newPost.CreatedAt,
-		&newPost.UpdatedAt,
+	err := s.db.QueryRow(ctx, query, post.Title, post.Content, post.Tags, post.UserID).Scan(
+		&post.ID,
+		&post.CreatedAt,
+		&post.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCouldNotCreatePost, err.Error())
 	}
-
-	log.Printf("Post created: %+v", newPost)
 	return nil
+}
+
+func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
+	var post Post
+
+	query := `SELECT id, title, content, tags, user_id, created_at, updated_at FROM posts WHERE id = $1`
+	err := s.db.QueryRow(ctx, query, postId).Scan(
+		&post.ID,
+		&post.Title,
+		&post.Content,
+		&post.Tags,
+		&post.UserID,
+		&post.CreatedAt,
+		&post.UpdatedAt,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &post, nil
 }

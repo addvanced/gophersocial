@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type User struct {
-	PostgresEntity
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"-"`
+	ID        int64     `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Password  string    `json:"-"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 type UsersStore struct {
 	db *pgxpool.Pool
@@ -45,4 +48,8 @@ func (s *UsersStore) Create(ctx context.Context, user *User) error {
 
 	log.Printf("User created: %+v", newUser)
 	return nil
+}
+
+func (s *UsersStore) GetByID(ctx context.Context, userId int64) (*User, error) {
+	return nil, nil
 }

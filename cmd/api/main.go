@@ -9,9 +9,13 @@ import (
 	"github.com/addvanced/gophersocial/internal/store"
 )
 
+const VERSION = "0.0.1"
+
 func main() {
 	cfg := config{
 		addr: env.GetString("ADDR", ":8080"),
+		env:  env.GetString("ENVIRONMENT", "local"),
+
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
 			env.GetString("DB_PASSWORD", "password"),

@@ -19,7 +19,9 @@ type application struct {
 
 type config struct {
 	addr string
-	db   db.PostgresConfig
+	env  string
+
+	db db.PostgresConfig
 }
 
 func (app *application) mount() http.Handler {
@@ -39,6 +41,14 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		r.Route("/posts", func(r chi.Router) {
+			r.Post("/", app.createPostHandler)
+
+			r.Route("/{postId}", func(r chi.Router) {
+				r.Get("/", app.getPostHandler)
+			})
+		})
 	})
 
 	return r

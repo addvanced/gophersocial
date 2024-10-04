@@ -2,31 +2,29 @@ package store
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
+	ErrNotFound = errors.New("record not found")
+
 	// Post Errors
-	ErrCouldNotCreatePost = fmt.Errorf("could not create post")
+	ErrCouldNotCreatePost = errors.New("could not create post")
 
 	// User Errors
-	ErrCouldNotCreateUser = fmt.Errorf("could not create user")
+	ErrCouldNotCreateUser = errors.New("could not create user")
 )
-
-type PostgresEntity struct {
-	ID        int64  `json:"id"`
-	CreatedAt string `json:"created_at"` // TODO: Replace with time.Time
-	UpdatedAt string `json:"updated_at"` // TODO: Replace with time.Time
-}
 
 type Storage struct {
 	Posts interface {
 		Create(context.Context, *Post) error
+		GetByID(context.Context, int64) (*Post, error)
 	}
 	Users interface {
 		Create(context.Context, *User) error
+		GetByID(context.Context, int64) (*User, error)
 	}
 }
 
