@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,14 +19,85 @@ type Post struct {
 	Content   string    `json:"content"`
 	Tags      []string  `json:"tags"`
 	UserID    int64     `json:"user_id"`
+	User      User      `json:"user"`
 	Comments  []Comment `json:"comments"`
 	Version   int       `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type PostWithMetadata struct {
+	Post
+	CommentsCount int `json:"comments_count"`
+}
+
 type PostStore struct {
 	db *pgxpool.Pool
+}
+
+func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Pageable) ([]PostWithMetadata, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `
+	SELECT
+		p.id,
+		p.user_id,
+		p.title,
+		p.content,
+		p.tags,
+		p.version,
+		p.created_at,
+		p.updated_at,
+		u.username,
+		COALESCE(c.comments_count, 0) AS comments_count
+	FROM posts p
+	LEFT JOIN (
+		SELECT 
+			f.follower_id
+		FROM followers f
+		WHERE f.user_id = $1
+	) f ON p.user_id = f.follower_id
+	LEFT JOIN (
+		SELECT 
+			post_id, COUNT(*) AS comments_count
+		FROM comments
+		GROUP BY post_id
+	) c ON c.post_id = p.id
+	LEFT JOIN users u ON p.user_id = u.id
+	WHERE p.user_id = $1 OR f.follower_id IS NOT NULL
+	ORDER BY p.created_at ` + pageable.Sort + `
+	OFFSET $2 LIMIT $3
+	`
+
+	rows, err := s.db.Query(ctx, query, userId, pageable.Offset, pageable.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var feed []PostWithMetadata
+
+	for rows.Next() {
+		var p PostWithMetadata
+		if err := rows.Scan(
+			&p.ID,
+			&p.UserID,
+			&p.Title,
+			&p.Content,
+			&p.Tags,
+			&p.Version,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			&p.User.Username,
+			&p.CommentsCount,
+		); err != nil {
+			return nil, err
+		}
+		feed = append(feed, p)
+	}
+
+	return feed, nil
 }
 
 func (s *PostStore) Create(ctx context.Context, post *Post) error {
@@ -49,17 +122,17 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	return nil
 }
 
-func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
+func (s *PostStore) GetByID(ctx context.Context, postId int64) (Post, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
-
-	var post Post
 
 	query := `
 		SELECT id, title, content, tags, user_id, version, created_at, updated_at 
 		FROM posts 
 		WHERE id = $1
 	`
+
+	var post Post
 	err := s.db.QueryRow(ctx, query, postId).Scan(
 		&post.ID,
 		&post.Title,
@@ -73,12 +146,12 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return nil, ErrNotFound
+			return Post{}, ErrNotFound
 		default:
-			return nil, err
+			return Post{}, err
 		}
 	}
-	return &post, nil
+	return post, nil
 }
 
 func (s *PostStore) Update(ctx context.Context, post *Post) error {
@@ -124,15 +197,16 @@ func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
 	defer cancel()
 
 	query := `
-		INSERT INTO posts (title, content, tags, user_id)
-		VALUES ($1, $2, $3, $4) 
+		INSERT INTO posts (title, content, tags, user_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6) 
 		RETURNING id, title, content, tags, version, created_at, updated_at
 	`
 
 	postKeyMap := make(map[string]*Post)
 	batch := pgx.Batch{}
-	for _, post := range posts {
-		batch.Queue(query, post.Title, post.Content, post.Tags, post.UserID)
+	for i, post := range posts {
+		timeNow := pgtype.Timestamptz{Time: time.Now().Add(time.Duration(i) * time.Minute), Valid: true}
+		batch.Queue(query, post.Title, post.Content, post.Tags, post.UserID, timeNow, timeNow)
 		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
 		postKeyMap[postKey] = post
 	}
@@ -142,6 +216,7 @@ func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
 	for {
 		var post Post
 		if queryErr := br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt); queryErr != nil {
+			log.Printf("Error: %+v\n", queryErr)
 			break
 		}
 		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))

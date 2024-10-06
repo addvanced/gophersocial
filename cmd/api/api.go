@@ -67,6 +67,10 @@ func (app *application) mount() http.Handler {
 				//r.Patch("/", app.updateUserHandler)
 				//r.Delete("/", app.deleteUserHandler)
 			})
+
+			r.Group(func(r chi.Router) {
+				r.Get("/feed", app.getUserFeedHandler)
+			})
 		})
 	})
 

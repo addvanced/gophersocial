@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,7 +44,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, userId int64) (*User, error) {
+func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -66,12 +67,12 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (*User, error) {
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return nil, ErrNotFound
+			return User{}, ErrNotFound
 		default:
-			return nil, err
+			return User{}, err
 		}
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (s *UserStore) Delete(ctx context.Context, userId int64) error {
@@ -99,6 +100,7 @@ func (s *UserStore) CreateBatch(ctx context.Context, users []*User) error {
 	for {
 		var user User
 		if queryErr := br.QueryRow().Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt); queryErr != nil {
+			log.Printf("Error: %+v\n", queryErr)
 			break
 		}
 		userEmailMap[user.Email].ID = user.ID

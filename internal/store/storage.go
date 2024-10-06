@@ -21,24 +21,26 @@ var (
 
 type Storage struct {
 	Posts interface {
+		GetByID(context.Context, int64) (Post, error)
+		GetUserFeed(context.Context, int64, Pageable) ([]PostWithMetadata, error)
+
 		Create(context.Context, *Post) error
-		GetByID(context.Context, int64) (*Post, error)
+		CreateBatch(context.Context, []*Post) error
 		Update(context.Context, *Post) error
 		Delete(context.Context, int64) error
-
-		CreateBatch(context.Context, []*Post) error
 	}
 	Users interface {
-		Create(context.Context, *User) error
-		GetByID(context.Context, int64) (*User, error)
-		Delete(context.Context, int64) error
+		GetByID(context.Context, int64) (User, error)
 
+		Create(context.Context, *User) error
 		CreateBatch(context.Context, []*User) error
+
+		Delete(context.Context, int64) error
 	}
 	Comments interface {
-		Create(context.Context, *Comment) error
 		GetByPostID(context.Context, int64) ([]Comment, error)
 
+		Create(context.Context, *Comment) error
 		CreateBatch(context.Context, []*Comment) error
 	}
 	Follow interface {
