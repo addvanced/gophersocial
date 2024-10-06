@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 
 	"math/rand"
 
@@ -228,39 +229,46 @@ var (
 	}
 )
 
-func Seed(store store.Storage) {
-	ctx := context.Background()
+func Seed(ctx context.Context, store store.Storage) {
+	var (
+		userNum   = 200
+		followNum = 10000
+
+		postNum    = 200
+		commentNum = 500000
+	)
 
 	log.Println("Seeding database...")
 
-	log.Println(" - Generating 100 users...")
-	users := generateUsers(100)
-	for _, user := range users {
-		if err := store.Users.Create(ctx, user); err != nil {
-			log.Println("Could not create user:", err)
-			return
-		}
+	log.Printf(" - Generating %d users...\n", userNum)
+	users := generateUsers(userNum)
+	if err := store.Users.CreateBatch(ctx, users); err != nil {
+		log.Printf("Could not create users: %v\n", err)
+		return
 	}
 
-	log.Println(" - Generating 200 posts...")
-	posts := generatePosts(200, users)
-	for _, post := range posts {
-		if err := store.Posts.Create(ctx, post); err != nil {
-			log.Println("Could not create post:", err)
-			return
-		}
+	log.Printf(" - Generating %d followers...\n", followNum)
+	follows := generateFollowers(followNum, users)
+	if err := store.Follow.CreateBatch(ctx, follows); err != nil {
+		log.Printf("Could not create follows: %v\n", err)
+		return
 	}
 
-	log.Println(" - Generating 500 post comments...")
-	comments := generateComments(500, users, posts)
-	for _, comment := range comments {
-		if err := store.Comments.Create(ctx, comment); err != nil {
-			log.Println("Could not create comment:", err)
-			return
-		}
+	log.Printf(" - Generating %d posts...\n", postNum)
+	posts := generatePosts(postNum, users)
+	if err := store.Posts.CreateBatch(ctx, posts); err != nil {
+		log.Printf("Could not create posts: %v\n", err)
+		return
 	}
 
-	log.Println("Database seeding complete.")
+	log.Printf(" - Generating %d comments...\n", commentNum)
+	comments := generateComments(commentNum, users, posts)
+	if err := store.Comments.CreateBatch(ctx, comments); err != nil {
+		log.Printf("Could not create users: %v\n", err)
+		return
+	}
+
+	log.Println("Database seeding complete!")
 }
 
 func generateUsers(num int) []*store.User {
@@ -274,8 +282,33 @@ func generateUsers(num int) []*store.User {
 			Password: fmt.Sprintf("%sPassword", username),
 		}
 	}
-
 	return users
+}
+
+func generateFollowers(num int, users []*store.User) []*store.Follower {
+	followers := make([]*store.Follower, 0, num)
+	existingPairs := []string{}
+
+	for len(followers) < num {
+		user := users[rand.Intn(len(users))]
+		follower := users[rand.Intn(len(users))]
+
+		pairKey := fmt.Sprintf("%d-%d", user.ID, follower.ID)
+
+		// Check if userID == followerID or the pair already exists
+		if slices.Contains(existingPairs, pairKey) || user.ID == follower.ID {
+			continue
+		}
+
+		// Add the new pair to existingPairs and followers
+		existingPairs = append(existingPairs, pairKey)
+		followers = append(followers, &store.Follower{
+			UserID:     user.ID,
+			FollowerID: follower.ID,
+		})
+	}
+
+	return followers
 }
 
 func generatePosts(num int, users []*store.User) []*store.Post {

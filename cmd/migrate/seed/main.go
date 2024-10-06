@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -10,6 +11,9 @@ import (
 )
 
 func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
 	dbCfg := db.NewPostgresConfig(
 		env.GetString("DB_USER", "user"),
 		env.GetString("DB_PASSWORD", "password"),
@@ -24,7 +28,7 @@ func main() {
 
 	log.Printf("Connecting to database on %s", dbCfg.ConnString())
 
-	database, err := db.NewPostgresDB(&dbCfg)
+	database, err := db.NewPostgresDB(ctx, &dbCfg)
 	if err != nil {
 		log.Panicf("could not connect to db: %+v", err)
 	}
@@ -32,5 +36,5 @@ func main() {
 	log.Println("Database connection pool established")
 
 	store := store.NewStorage(database)
-	db.Seed(store)
+	db.Seed(ctx, store)
 }

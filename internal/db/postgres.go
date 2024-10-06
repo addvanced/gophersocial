@@ -62,13 +62,13 @@ func (db PostgresConfig) ConnString() string {
 	return dsn
 }
 
-func NewPostgresDB(cfg *PostgresConfig) (*pgxpool.Pool, error) {
+func NewPostgresDB(ctx context.Context, cfg *PostgresConfig) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(cfg.ConnString())
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)

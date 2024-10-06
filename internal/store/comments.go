@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"time"
 
@@ -40,7 +38,7 @@ func (s *CommentStore) Create(ctx context.Context, comment *Comment) error {
 		&comment.CreatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrCouldNotCreateRecord, err.Error())
+		return err
 	}
 	return nil
 }
@@ -56,8 +54,8 @@ func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]Comment
 	`
 	rows, err := s.db.Query(ctx, query, postID)
 	if err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		switch err {
+		case pgx.ErrNoRows:
 			return comments, nil
 		default:
 			return nil, err
@@ -84,4 +82,33 @@ func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]Comment
 		comments = append(comments, c)
 	}
 	return comments, nil
+}
+
+func (s *CommentStore) CreateBatch(ctx context.Context, comments []*Comment) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	defer cancel()
+
+	query := `INSERT INTO comments (post_id, user_id, content) VALUES ($1, $2, $3)`
+
+	//commentKeyMap := make(map[string]*Comment)
+	batch := pgx.Batch{}
+	for _, comment := range comments {
+		batch.Queue(query, comment.PostID, comment.UserID, comment.Content)
+		/*commentKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%d-%d-%s", comment.UserID, comment.PostID, comment.Content))))
+		commentKeyMap[commentKey] = comment*/
+	}
+	br := s.db.SendBatch(ctx, &batch)
+	defer br.Close()
+
+	/*for {
+		var comment Comment
+		if queryErr := br.QueryRow().Scan(&comment.ID, &comment.UserID, &comment.PostID, &comment.Content, &comment.CreatedAt); queryErr != nil {
+			break
+		}
+		commentKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%d-%d-%s", comment.UserID, comment.PostID, comment.Content))))
+		commentKeyMap[commentKey].ID = comment.ID
+		commentKeyMap[commentKey].CreatedAt = comment.CreatedAt
+	}*/
+
+	return nil
 }

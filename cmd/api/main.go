@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -29,7 +30,9 @@ func main() {
 		),
 	}
 
-	db, err := db.NewPostgresDB(&cfg.db)
+	ctx := context.Background()
+
+	db, err := db.NewPostgresDB(ctx, &cfg.db)
 	if err != nil {
 		log.Panicf("could not connect to db: %+v", err)
 	}

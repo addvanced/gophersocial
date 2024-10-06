@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -96,11 +95,12 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := app.store.Posts.Update(ctx, post); err != nil {
-		switch {
-		case errors.Is(err, store.ErrDirtyRecord):
+		switch err {
+		case store.ErrDirtyRecord:
 			app.conflictResponse(w, r, fmt.Errorf("post with ID '%d' has been modified by another user", post.ID))
+		default:
+			app.internalServerError(w, r, err)
 		}
-		app.internalServerError(w, r, err)
 		return
 	}
 
@@ -113,8 +113,8 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 	post := app.getPostFromCtx(r)
 
 	if err := app.store.Posts.Delete(r.Context(), post.ID); err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
+		switch err {
+		case store.ErrNotFound:
 			app.notFoundResponse(w, r, fmt.Errorf("post with ID '%d' does not exist", post.ID))
 		default:
 			app.internalServerError(w, r, err)
@@ -125,7 +125,7 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (app *application) postsContextMiddleware(next http.Handler) http.Handler {
+func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		postId, err := strconv.ParseInt(strings.TrimSpace(chi.URLParam(r, "postId")), 10, 64)
 		if err != nil {
@@ -137,8 +137,8 @@ func (app *application) postsContextMiddleware(next http.Handler) http.Handler {
 
 		post, err := app.store.Posts.GetByID(ctx, postId)
 		if err != nil {
-			switch {
-			case errors.Is(err, store.ErrNotFound):
+			switch err {
+			case store.ErrNotFound:
 				app.notFoundResponse(w, r, fmt.Errorf("post with ID '%d' was not found", postId))
 			default:
 				app.internalServerError(w, r, err)

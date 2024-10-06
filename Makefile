@@ -1,9 +1,10 @@
 include .envrc
-MIGRATIONS_PATH := ./cmd/migrate/migrations
-DB_DSN := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)
 
-.PHONY: migration
-migration:
+MIGRATIONS_PATH := ./cmd/migrate/migrations
+DATABASE_CONNSTR := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)
+
+.PHONY: db/migrate/create
+db/migrate/create:
 	@output=$$(migrate create -seq -ext sql -dir $(MIGRATIONS_PATH) $(filter-out $@,$(MAKECMDGOALS)) 2>&1); \
 	up_file=$$(echo "$$output" | grep -o '[^ ]*\.up\.sql'); \
 	down_file=$$(echo "$$output" | grep -o '[^ ]*\.down\.sql'); \
@@ -17,17 +18,17 @@ migration:
 %:
 	@:
 
-.PHONY: migrate/up
-migrate/up:
+.PHONY: db/migrate/up
+db/migrate/up:
 	@echo "Running database 'up'-migrations..."
-	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_DSN) up
+	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) up
 
-.PHONY: migrate/down
-migrate/down:
+.PHONY: db/migrate/down
+db/migrate/down:
 	@echo "Running database 'down'-migration(s)..."
-	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_DSN) down $(filter-out $@,$(MAKECMDGOALS))
+	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) down $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: database/seed
-database/seed:
+.PHONY: db/seed
+db/seed:
 	@echo "Seeding database..."
 	@go run ./cmd/migrate/seed/main.go

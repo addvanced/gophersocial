@@ -48,11 +48,24 @@ func (app *application) mount() http.Handler {
 			r.Post("/", app.createPostHandler)
 
 			r.Route("/{postId}", func(r chi.Router) {
-				r.Use(app.postsContextMiddleware)
+				r.Use(app.addPostToCtxMiddleware)
 
 				r.Get("/", app.getPostHandler)
 				r.Patch("/", app.updatePostHandler)
 				r.Delete("/", app.deletePostHandler)
+			})
+		})
+
+		r.Route("/users", func(r chi.Router) {
+			r.Route("/{userId}", func(r chi.Router) {
+				r.Use(app.addUserToCtxMiddleware)
+
+				r.Get("/", app.getUserHandler)
+
+				r.Put("/follow", app.followUserHandler)
+				r.Put("/unfollow", app.unfollowUserHandler)
+				//r.Patch("/", app.updateUserHandler)
+				//r.Delete("/", app.deleteUserHandler)
 			})
 		})
 	})

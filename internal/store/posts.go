@@ -2,8 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
+	"crypto/md5"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -70,8 +71,8 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (*Post, error) {
 		&post.UpdatedAt,
 	)
 	if err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		switch err {
+		case pgx.ErrNoRows:
 			return nil, ErrNotFound
 		default:
 			return nil, err
@@ -92,8 +93,8 @@ func (s *PostStore) Update(ctx context.Context, post *Post) error {
 	`
 
 	if err := s.db.QueryRow(ctx, query, post.Title, post.Content, post.ID, post.Version).Scan(&post.Version); err != nil {
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		switch err {
+		case pgx.ErrNoRows:
 			return ErrDirtyRecord
 		default:
 			return err
@@ -106,10 +107,7 @@ func (s *PostStore) Delete(ctx context.Context, postId int64) error {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	query := `
-		DELETE FROM posts 
-		WHERE id = $1
-	`
+	query := `DELETE FROM posts WHERE id = $1`
 
 	res, err := s.db.Exec(ctx, query, postId)
 	if err != nil {
@@ -118,5 +116,39 @@ func (s *PostStore) Delete(ctx context.Context, postId int64) error {
 		return ErrNotFound
 	}
 
+	return nil
+}
+
+func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	defer cancel()
+
+	query := `
+		INSERT INTO posts (title, content, tags, user_id)
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id, title, content, tags, version, created_at, updated_at
+	`
+
+	postKeyMap := make(map[string]*Post)
+	batch := pgx.Batch{}
+	for _, post := range posts {
+		batch.Queue(query, post.Title, post.Content, post.Tags, post.UserID)
+		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
+		postKeyMap[postKey] = post
+	}
+	br := s.db.SendBatch(ctx, &batch)
+	defer br.Close()
+
+	for {
+		var post Post
+		if queryErr := br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt); queryErr != nil {
+			break
+		}
+		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
+		postKeyMap[postKey].ID = post.ID
+		postKeyMap[postKey].Version = post.Version
+		postKeyMap[postKey].CreatedAt = post.CreatedAt
+		postKeyMap[postKey].UpdatedAt = post.UpdatedAt
+	}
 	return nil
 }
