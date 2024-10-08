@@ -20,7 +20,13 @@ func (app *application) getUserFeedHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	feed, err := app.store.Posts.GetUserFeed(ctx, int64(100), pageable)
+	filter, err := new(store.FeedFilter).Parse(r)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	feed, err := app.store.Posts.GetUserFeed(ctx, int64(100), pageable, filter)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

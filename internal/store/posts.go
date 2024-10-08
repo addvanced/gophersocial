@@ -35,29 +35,33 @@ type PostStore struct {
 	db *pgxpool.Pool
 }
 
-func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Pageable) ([]PostWithMetadata, error) {
+func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Pageable, filter FeedFilter) ([]PostWithMetadata, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	query := `
-	SELECT
-		p.id,
-		p.user_id,
-		p.title,
-		p.content,
-		p.tags,
-		p.version,
-		p.created_at,
-		p.updated_at,
-		u.username,
+	log.Printf("Filter: %+v\n", filter)
+
+	q := Query{}
+	q.Query(`SELECT 
+		p.id, 
+		p.user_id, 
+		p.title, 
+		p.content, 
+		p.tags, 
+		p.version, 
+		p.created_at, 
+		p.updated_at, 
+		u.username, 
 		COALESCE(c.comments_count, 0) AS comments_count
 	FROM posts p
 	LEFT JOIN (
 		SELECT 
 			f.follower_id
 		FROM followers f
-		WHERE f.user_id = $1
-	) f ON p.user_id = f.follower_id
+		WHERE f.user_id = `)
+	q.Param(userId)
+
+	q.Query(`) f ON p.user_id = f.follower_id
 	LEFT JOIN (
 		SELECT 
 			post_id, COUNT(*) AS comments_count
@@ -65,12 +69,60 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Page
 		GROUP BY post_id
 	) c ON c.post_id = p.id
 	LEFT JOIN users u ON p.user_id = u.id
-	WHERE p.user_id = $1 OR f.follower_id IS NOT NULL
-	ORDER BY p.created_at ` + pageable.Sort + `
-	OFFSET $2 LIMIT $3
-	`
+	WHERE (p.user_id = `)
+	q.Param(userId)
+	q.Query(` OR f.follower_id IS NOT NULL)`)
 
-	rows, err := s.db.Query(ctx, query, userId, pageable.Offset, pageable.Limit)
+	if sinceStr := strings.TrimSpace(filter.Since); sinceStr != "" {
+		if since, err := time.Parse(time.RFC3339, fmt.Sprintf("%s+02:00", sinceStr)); err == nil {
+			q.Query(` AND p.created_at >= `)
+			q.Param(pgtype.Timestamptz{Time: since.UTC(), Valid: true})
+		}
+	}
+
+	if untilStr := strings.TrimSpace(filter.Until); untilStr != "" {
+		if until, err := time.Parse(time.RFC3339, fmt.Sprintf("%s+02:00", untilStr)); err == nil {
+			q.Query(` AND p.created_at <= `)
+			q.Param(pgtype.Timestamptz{Time: until.UTC(), Valid: true})
+		}
+	}
+
+	if searchStr := strings.TrimSpace(filter.Search); searchStr != "" {
+		q.Query(` AND (p.title ILIKE '%' || `)
+		q.Param(searchStr)
+		q.Query(` || '%' OR p.content ILIKE '%' || `)
+		q.Param(searchStr)
+		q.Query(` || '%')`)
+	}
+
+	if len(filter.Tags) > 0 {
+		q.Query(` AND (`)
+		for i, tag := range filter.Tags {
+			if i > 0 {
+				q.Query(" AND ")
+			}
+			q.Query(`EXISTS (SELECT 1 FROM UNNEST(p.tags) AS tag WHERE tag ILIKE '%' || `)
+			q.Param(strings.TrimSpace(tag))
+			q.Query(` || '%')`)
+		}
+		q.Query(`)`)
+	}
+
+	/* Another solution to get tags, but is not case insensitive and no wildcard search
+	if len(filter.Tags) > 0 {
+		q.Query(` AND (p.tags @> `)
+		q.Param(pq.Array(filter.Tags))
+		q.Query(`)`)
+	}
+	*/
+
+	q.Query(fmt.Sprintf(" ORDER BY p.created_at %s", strings.TrimSpace(strings.ToUpper(pageable.Sort))))
+	q.Query(` OFFSET `)
+	q.Param(pageable.Offset)
+	q.Query(` LIMIT `)
+	q.Param(pageable.Limit)
+
+	rows, err := s.db.Query(ctx, q.GetQuery(), q.GetParams()...)
 	if err != nil {
 		return nil, err
 	}

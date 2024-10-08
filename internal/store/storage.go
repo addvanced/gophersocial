@@ -22,7 +22,7 @@ var (
 type Storage struct {
 	Posts interface {
 		GetByID(context.Context, int64) (Post, error)
-		GetUserFeed(context.Context, int64, Pageable) ([]PostWithMetadata, error)
+		GetUserFeed(context.Context, int64, Pageable, FeedFilter) ([]PostWithMetadata, error)
 
 		Create(context.Context, *Post) error
 		CreateBatch(context.Context, []*Post) error
