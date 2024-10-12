@@ -17,7 +17,7 @@ type Comment struct {
 	User      User      `json:"user"`
 	Post      Post      `json:"post"`
 	CreatedAt time.Time `json:"created_at"`
-}
+} // @name Comment
 
 type CommentStore struct {
 	db     *pgxpool.Pool

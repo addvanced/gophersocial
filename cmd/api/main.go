@@ -25,10 +25,23 @@ const VERSION = "0.0.1"
 
 //	@BasePath	/v1
 
-// @securityDifinitions.apikey	ApiKeyAuth
-// @in							header
-// @name						Authorization
-// @description				JWT Authorization header
+//	@securityDifinitions.apikey	ApiKeyAuth
+//	@in							header
+//	@name						Authorization
+//	@description				JWT Authorization header
+
+//	@tag.name			posts
+//	@tag.description	Operations related to managing posts
+//
+//	@tag.name			feed
+//	@tag.description	Operations related to the user feed
+//
+//	@tag.name			ops
+//	@tag.description	OPS Specific operations
+//
+//	@tag.name			users
+//	@tag.description	Operations related to managing users
+
 func main() {
 	cfg := config{
 		addr:   env.GetString("ADDR", ":8080"),

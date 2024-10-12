@@ -24,12 +24,12 @@ type Post struct {
 	Version   int       `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
+} // @name Post
 
 type PostWithMetadata struct {
 	Post
 	CommentsCount int `json:"comments_count"`
-}
+} // @name PostWithMetadata
 
 type PostStore struct {
 	db     *pgxpool.Pool
