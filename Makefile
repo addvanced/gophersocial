@@ -32,3 +32,7 @@ db/migrate/down:
 db/seed:
 	@echo "Seeding database..."
 	@go run ./cmd/migrate/seed/main.go
+
+.PHONY: docs
+docs:
+	@swag init -g ./api/main.go -d cmd,internal && swag fmt

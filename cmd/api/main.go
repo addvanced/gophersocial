@@ -12,10 +12,28 @@ import (
 
 const VERSION = "0.0.1"
 
+//	@title			GopherSocial API
+//	@description	API for GopherSocial, a social network for gophers.
+//	@termsOfService	http://swagger.io/terms/
+
+//	@contact.name	API Support
+//	@contact.url	http://www.swagger.io/support
+//	@contact.email	kenneth@addvanced.dk
+
+//	@license.name	Apache 2.0
+//	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
+
+//	@BasePath	/v1
+
+// @securityDifinitions.apikey	ApiKeyAuth
+// @in							header
+// @name						Authorization
+// @description				JWT Authorization header
 func main() {
 	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
-		env:  env.GetString("ENVIRONMENT", "local"),
+		addr:   env.GetString("ADDR", ":8080"),
+		env:    env.GetString("ENVIRONMENT", "local"),
+		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
 
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
