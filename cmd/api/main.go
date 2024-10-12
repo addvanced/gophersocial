@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/store"
+	"go.uber.org/zap"
 )
 
 const VERSION = "0.0.1"
@@ -32,20 +32,26 @@ func main() {
 
 	ctx := context.Background()
 
+	// Logger
+	logger := zap.Must(zap.NewProduction()).Sugar()
+	defer logger.Sync()
+
+	// Database
 	db, err := db.NewPostgresDB(ctx, &cfg.db)
 	if err != nil {
-		log.Panicf("could not connect to db: %+v", err)
+		logger.Fatalw("could not connect to db", "error", err.Error())
 	}
 	defer db.Close()
-	log.Println("Database connection pool established")
+	logger.Infoln("Database connection pool established")
 
-	store := store.NewStorage(db)
+	store := store.NewStorage(db, logger)
 	app := &application{
 		config: cfg,
 		store:  store,
+		logger: logger,
 	}
 
 	mux := app.mount()
 
-	log.Fatal(app.run(mux))
+	logger.Fatal(app.run(mux))
 }

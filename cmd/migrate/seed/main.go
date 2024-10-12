@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/store"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -26,15 +26,18 @@ func main() {
 		env.GetDuration("DB_MAX_IDLE_TIME", 15*time.Minute),
 	)
 
-	log.Printf("Connecting to database on %s", dbCfg.ConnString())
+	logger := zap.Must(zap.NewProduction()).Sugar()
+	defer logger.Sync()
+
+	logger.Infow("Connecting to database", "dsn", dbCfg.ConnString())
 
 	database, err := db.NewPostgresDB(ctx, &dbCfg)
 	if err != nil {
-		log.Panicf("could not connect to db: %+v", err)
+		logger.Fatalw("could not connect to db", "error", err.Error())
 	}
 	defer database.Close()
-	log.Println("Database connection pool established")
+	logger.Infoln("Database connection pool established")
 
-	store := store.NewStorage(database)
+	store := store.NewStorage(database, logger)
 	db.Seed(ctx, store)
 }

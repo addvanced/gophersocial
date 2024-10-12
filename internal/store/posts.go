@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type Post struct {
@@ -32,14 +32,13 @@ type PostWithMetadata struct {
 }
 
 type PostStore struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Pageable, filter FeedFilter) ([]PostWithMetadata, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
-
-	log.Printf("Filter: %+v\n", filter)
 
 	q := Query{}
 	q.Query(`SELECT 
@@ -268,7 +267,7 @@ func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
 	for {
 		var post Post
 		if queryErr := br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt); queryErr != nil {
-			log.Printf("Error: %+v\n", queryErr)
+			s.logger.Errorw("Could not create posts in batch", "error", queryErr.Error())
 			break
 		}
 		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))

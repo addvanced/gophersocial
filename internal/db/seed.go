@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 	"slices"
 
 	"math/rand"
@@ -238,37 +237,37 @@ func Seed(ctx context.Context, store store.Storage) {
 		commentNum = 500000
 	)
 
-	log.Println("Seeding database...")
+	store.Logger.Infoln("Seeding database...")
 
-	log.Printf(" - Generating %d users...\n", userNum)
+	store.Logger.Infof(" - Generating %d users...\n", userNum)
 	users := generateUsers(userNum)
 	if err := store.Users.CreateBatch(ctx, users); err != nil {
-		log.Printf("Could not create users: %v\n", err)
+		store.Logger.Errorw("Could not create users", "error", err.Error())
 		return
 	}
 
-	log.Printf(" - Generating %d followers...\n", followNum)
+	store.Logger.Infof(" - Generating %d followers...\n", followNum)
 	follows := generateFollowers(followNum, users)
 	if err := store.Follow.CreateBatch(ctx, follows); err != nil {
-		log.Printf("Could not create follows: %v\n", err)
+		store.Logger.Errorw("Could not create follows", "error", err.Error())
 		return
 	}
 
-	log.Printf(" - Generating %d posts...\n", postNum)
+	store.Logger.Infof(" - Generating %d posts...\n", postNum)
 	posts := generatePosts(postNum, users)
 	if err := store.Posts.CreateBatch(ctx, posts); err != nil {
-		log.Printf("Could not create posts: %v\n", err)
+		store.Logger.Errorw("Could not create posts", "error", err.Error())
 		return
 	}
 
-	log.Printf(" - Generating %d comments...\n", commentNum)
+	store.Logger.Infof(" - Generating %d comments...\n", commentNum)
 	comments := generateComments(commentNum, users, posts)
 	if err := store.Comments.CreateBatch(ctx, comments); err != nil {
-		log.Printf("Could not create users: %v\n", err)
+		store.Logger.Errorw("Could not create users", "error", err.Error())
 		return
 	}
 
-	log.Println("Database seeding complete!")
+	store.Logger.Infoln("Database seeding complete!")
 }
 
 func generateUsers(num int) []*store.User {

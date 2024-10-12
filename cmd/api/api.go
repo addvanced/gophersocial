@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/addvanced/gophersocial/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 )
 
 type ctxKey string
@@ -17,6 +17,7 @@ type ctxKey string
 type application struct {
 	config config
 	store  store.Storage
+	logger *zap.SugaredLogger
 }
 
 type config struct {
@@ -86,6 +87,6 @@ func (app *application) run(mux http.Handler) error {
 		IdleTimeout:  env.GetDuration("TIMEOUT_IDLE", time.Minute),
 	}
 
-	log.Printf("server has started on %s", app.config.addr)
+	app.logger.Infow("server has started", "addr", app.config.addr)
 	return srv.ListenAndServe()
 }

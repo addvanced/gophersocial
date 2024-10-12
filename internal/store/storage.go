@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 const QueryTimeoutDuration = 5 * time.Second
@@ -20,7 +21,8 @@ var (
 )
 
 type Storage struct {
-	Posts interface {
+	Logger *zap.SugaredLogger
+	Posts  interface {
 		GetByID(context.Context, int64) (Post, error)
 		GetUserFeed(context.Context, int64, Pageable, FeedFilter) ([]PostWithMetadata, error)
 
@@ -52,11 +54,13 @@ type Storage struct {
 	}
 }
 
-func NewStorage(db *pgxpool.Pool) Storage {
+func NewStorage(db *pgxpool.Pool, logger *zap.SugaredLogger) Storage {
+	storeLogger := logger.Named("store")
 	return Storage{
-		Posts:    &PostStore{db},
-		Users:    &UserStore{db},
-		Comments: &CommentStore{db},
-		Follow:   &FollowerStore{db},
+		Logger:   storeLogger,
+		Posts:    &PostStore{db, storeLogger.Named("posts")},
+		Users:    &UserStore{db, storeLogger.Named("users")},
+		Comments: &CommentStore{db, storeLogger.Named("comments")},
+		Follow:   &FollowerStore{db, storeLogger.Named("followers")},
 	}
 }

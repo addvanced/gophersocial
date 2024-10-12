@@ -3,12 +3,12 @@ package store
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type Follower struct {
@@ -18,7 +18,8 @@ type Follower struct {
 }
 
 type FollowerStore struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 func (s *FollowerStore) Follow(ctx context.Context, followerId int64, userId int64) error {
@@ -37,7 +38,6 @@ func (s *FollowerStore) Follow(ctx context.Context, followerId int64, userId int
 				return ErrConflict
 			}
 		} else {
-			log.Printf("Error [type=%T]: %+v\n", err, err)
 			return err
 		}
 	}

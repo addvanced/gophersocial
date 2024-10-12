@@ -2,11 +2,11 @@ package store
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type Comment struct {
@@ -20,7 +20,8 @@ type Comment struct {
 }
 
 type CommentStore struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 func (s *CommentStore) Create(ctx context.Context, comment *Comment) error {
@@ -76,7 +77,7 @@ func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]Comment
 			&c.User.ID,
 			&c.User.Username,
 		); err != nil {
-			log.Printf("Could not add comment: %+v", err)
+			s.logger.Errorw("Could not add comment", "errors", err.Error())
 			continue
 		}
 		comments = append(comments, c)

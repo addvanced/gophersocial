@@ -3,11 +3,11 @@ package store
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type User struct {
@@ -19,7 +19,8 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 type UserStore struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
 func (s *UserStore) Create(ctx context.Context, user *User) error {
@@ -100,7 +101,7 @@ func (s *UserStore) CreateBatch(ctx context.Context, users []*User) error {
 	for {
 		var user User
 		if queryErr := br.QueryRow().Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt); queryErr != nil {
-			log.Printf("Error: %+v\n", queryErr)
+			s.logger.Errorw("Could not create user in batch", "errors", queryErr.Error())
 			break
 		}
 		userEmailMap[user.Email].ID = user.ID
