@@ -26,7 +26,7 @@ type RegisterUserRequest struct {
 //	@Success		201		{object}	User				"User registered"
 //	@Failure		400		{object}	error
 //	@Failure		500		{object}	error
-//	@Router			/authentication/user [post]
+//	@Router			/auth/user [post]
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -53,9 +53,8 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	token := app.generateToken()
-
-	if err := app.store.Users.CreateAndInvite(ctx, user, token, app.config.mail.inviteExpDuration); err != nil {
+	plainToken, hashedToken := app.generateToken()
+	if err := app.store.Users.CreateAndInvite(ctx, user, hashedToken, app.config.mail.inviteExpDuration); err != nil {
 		app.logger.Error("Error inviting user", "error", err)
 		switch err {
 		case store.ErrDuplicateEmail:
@@ -67,16 +66,17 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
+	app.logger.Infow("Generated token for user.", "plain", plainToken, "hashed", hashedToken, "user", user)
 
 	app.jsonResponse(w, http.StatusCreated, user)
 }
 
-func (app *application) generateToken() string {
-	plainToken := uuid.New().String()
+func (app *application) generateToken() (plainToken string, hashToken string) {
+	// Plain Token to send to user
+	plainToken = uuid.New().String()
 
-	// store
+	// Hashed Token to store in DB
 	hash := sha256.Sum256([]byte(plainToken))
-	hashToken := hex.EncodeToString(hash[:])
-
-	return hashToken
+	hashToken = hex.EncodeToString(hash[:])
+	return
 }

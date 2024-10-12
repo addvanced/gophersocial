@@ -39,6 +39,9 @@ type Storage struct {
 		Create(context.Context, pgx.Tx, *User) error
 		CreateAndInvite(ctx context.Context, user *User, token string, inviteExpire time.Duration) error
 
+		Update(context.Context, pgx.Tx, *User) error
+
+		Activate(context.Context, string) error
 		CreateBatch(context.Context, []*User) error // For DB seeding
 	}
 	Comments interface {

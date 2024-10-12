@@ -70,6 +70,8 @@ func (app *application) mount() http.Handler {
 		})
 
 		r.Route("/users", func(r chi.Router) {
+			r.Put("/activate/{token}", app.activateUserHandler)
+
 			r.Route("/{userId}", func(r chi.Router) {
 				r.Use(app.addUserToCtxMiddleware)
 
@@ -87,6 +89,7 @@ func (app *application) mount() http.Handler {
 		// Public routes
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
+
 		})
 	})
 

@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -167,6 +169,95 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx pgx.Tx, token s
 	`
 
 	if _, err := tx.Exec(ctx, query, token, userId, time.Now().Add(exp)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserStore) Update(ctx context.Context, tx pgx.Tx, user *User) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `
+		UPDATE users 
+		SET email = $1, username = $2, is_active = $3, updated_at = $4
+		WHERE id = $5
+	`
+
+	if _, err := s.db.Exec(ctx, query, user.Email, user.Username, user.IsActive, time.Now(), user.ID); err != nil {
+		switch err {
+		case pgx.ErrNoRows:
+			return ErrDirtyRecord
+		default:
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *UserStore) Activate(ctx context.Context, token string) error {
+	return withTx(s.db, ctx, func(tx pgx.Tx) error {
+		user, err := s.getUserFromInvitation(ctx, tx, token)
+		if err != nil {
+			return err
+		}
+
+		user.IsActive = true
+		if err := s.Update(ctx, tx, user); err != nil {
+			return err
+		}
+
+		if err := s.deleteUserInvitations(ctx, tx, user.ID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (s *UserStore) getUserFromInvitation(ctx context.Context, tx pgx.Tx, token string) (*User, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `
+		SELECT 
+			u.id, u.username, u.email, u.created_at, u.updated_at, u.is_active
+		FROM users u LEFT JOIN user_invitations ui ON u.id = ui.user_id
+		WHERE ui.token = $1 AND ui.expire_at > $2
+	`
+
+	hash := sha256.Sum256([]byte(token))
+	hashToken := hex.EncodeToString(hash[:])
+	var user User
+	if err := tx.QueryRow(ctx,
+		query,
+		hashToken,
+		time.Now(),
+	).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.IsActive,
+	); err != nil {
+		switch err {
+		case pgx.ErrNoRows:
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
+}
+
+func (s *UserStore) deleteUserInvitations(ctx context.Context, tx pgx.Tx, userID int64) error {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	query := `DELETE FROM user_invitations WHERE user_id = $1`
+	if _, err := tx.Exec(ctx, query, userID); err != nil {
 		return err
 	}
 	return nil

@@ -126,7 +126,7 @@ info:
   termsOfService: http://swagger.io/terms/
   title: GopherSocial API
 paths:
-  /authentication/user:
+  /auth/user:
     post:
       consumes:
       - application/json
@@ -385,6 +385,33 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Unfollow a user
+      tags:
+      - users
+  /users/activate/{token}:
+    put:
+      description: Activates a new user profile by the invitation token
+      parameters:
+      - description: Invitation token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: User activated
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Activates a new user profile
       tags:
       - users
   /users/feed:
