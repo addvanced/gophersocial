@@ -28,6 +28,11 @@ db/migrate/down:
 	@echo "Running database 'down'-migration(s)..."
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) down $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: db/migrate/force
+db/migrate/force:
+	@echo "Running database 'up'-migrations with force..."
+	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) force $(filter-out $@,$(MAKECMDGOALS))
+
 .PHONY: db/seed
 db/seed:
 	@echo "Seeding database..."

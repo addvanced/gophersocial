@@ -47,7 +47,9 @@ func main() {
 		addr:   env.GetString("ADDR", ":8080"),
 		env:    env.GetString("ENVIRONMENT", "local"),
 		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
-
+		mail: mailConfig{
+			inviteExpDuration: env.GetDuration("USER_INVITE_EXPIRE", 48*time.Hour),
+		},
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
 			env.GetString("DB_PASSWORD", "password"),

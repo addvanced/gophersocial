@@ -15,7 +15,7 @@ type Comment struct {
 	UserID    int64     `json:"user_id"`
 	Content   string    `json:"content"`
 	User      User      `json:"user"`
-	Post      Post      `json:"post"`
+	Post      Post      `json:"post" swaggerignore:"true"`
 	CreatedAt time.Time `json:"created_at"`
 } // @name Comment
 

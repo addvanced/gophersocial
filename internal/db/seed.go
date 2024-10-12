@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sync"
 
 	"math/rand"
 
@@ -273,14 +274,23 @@ func Seed(ctx context.Context, store store.Storage) {
 func generateUsers(num int) []*store.User {
 	users := make([]*store.User, num)
 
+	wg := sync.WaitGroup{}
+	wg.Add(num)
 	for i := 0; i < num; i++ {
-		username := fmt.Sprintf("%s%d", usernames[i%len(usernames)], i)
-		users[i] = &store.User{
-			Username: username,
-			Email:    fmt.Sprintf("%s@example.com", username),
-			Password: fmt.Sprintf("%sPassword", username),
-		}
+		go func() {
+			defer wg.Done()
+			username := fmt.Sprintf("%s%d", usernames[i%len(usernames)], i)
+			user := &store.User{
+				Username: username,
+				Email:    fmt.Sprintf("%s@example.com", username),
+				IsActive: rand.Intn(2) == 0, // Randomly set IsActive to true or false
+			}
+			user.Password.Set(fmt.Sprintf("%sPassword", username))
+			users[i] = user
+		}()
 	}
+	wg.Wait()
+
 	return users
 }
 
@@ -288,12 +298,19 @@ func generateFollowers(num int, users []*store.User) []*store.Follower {
 	followers := make([]*store.Follower, 0, num)
 	existingPairs := []string{}
 
+	activeUsers := make([]*store.User, 0)
+	for _, user := range users {
+		if user.IsActive {
+			activeUsers = append(activeUsers, user)
+		}
+	}
+	numActiveUsers := len(activeUsers)
+
 	for len(followers) < num {
-		user := users[rand.Intn(len(users))]
-		follower := users[rand.Intn(len(users))]
+		user := activeUsers[rand.Intn(numActiveUsers)]
+		follower := activeUsers[rand.Intn(numActiveUsers)]
 
 		pairKey := fmt.Sprintf("%d-%d", user.ID, follower.ID)
-
 		// Check if userID == followerID or the pair already exists
 		if slices.Contains(existingPairs, pairKey) || user.ID == follower.ID {
 			continue
@@ -313,30 +330,41 @@ func generateFollowers(num int, users []*store.User) []*store.Follower {
 func generatePosts(num int, users []*store.User) []*store.Post {
 	posts := make([]*store.Post, num)
 
+	wg := sync.WaitGroup{}
+	wg.Add(num)
 	for i := 0; i < num; i++ {
-		user := users[rand.Intn(len(users))]
+		go func() {
+			defer wg.Done()
+			user := users[rand.Intn(len(users))]
 
-		posts[i] = &store.Post{
-			Title:   titles[rand.Intn(len(titles))],
-			Content: contents[rand.Intn(len(contents))],
-			Tags:    getRandomTags(),
-			UserID:  user.ID,
-		}
+			posts[i] = &store.Post{
+				Title:   titles[rand.Intn(len(titles))],
+				Content: contents[rand.Intn(len(contents))],
+				Tags:    getRandomTags(),
+				UserID:  user.ID,
+			}
+		}()
 	}
-
+	wg.Wait()
 	return posts
 }
 
 func generateComments(num int, users []*store.User, posts []*store.Post) []*store.Comment {
 	cms := make([]*store.Comment, num)
 
+	wg := sync.WaitGroup{}
+	wg.Add(num)
 	for i := 0; i < num; i++ {
-		cms[i] = &store.Comment{
-			PostID:  posts[rand.Intn(len(posts))].ID,
-			UserID:  users[rand.Intn(len(users))].ID,
-			Content: comments[rand.Intn(len(comments))],
-		}
+		go func() {
+			defer wg.Done()
+			cms[i] = &store.Comment{
+				PostID:  posts[rand.Intn(len(posts))].ID,
+				UserID:  users[rand.Intn(len(users))].ID,
+				Content: comments[rand.Intn(len(comments))],
+			}
+		}()
 	}
+	wg.Wait()
 	return cms
 }
 

@@ -8,8 +8,6 @@ definitions:
         type: string
       id:
         type: integer
-      post:
-        $ref: '#/definitions/Post'
       post_id:
         type: integer
       user:
@@ -92,10 +90,29 @@ definitions:
         type: string
       id:
         type: integer
+      is_active:
+        type: boolean
       updated_at:
         type: string
       username:
         type: string
+    type: object
+  main.RegisterUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 100
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
     type: object
 info:
   contact:
@@ -109,6 +126,34 @@ info:
   termsOfService: http://swagger.io/terms/
   title: GopherSocial API
 paths:
+  /authentication/user:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user
+      parameters:
+      - description: User data
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.RegisterUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Register a new user
+      tags:
+      - authentication
   /health:
     get:
       description: Healthcheck endpoint

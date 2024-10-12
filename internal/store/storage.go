@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -27,30 +28,32 @@ type Storage struct {
 		GetUserFeed(context.Context, int64, Pageable, FeedFilter) ([]PostWithMetadata, error)
 
 		Create(context.Context, *Post) error
-		CreateBatch(context.Context, []*Post) error
 		Update(context.Context, *Post) error
 		Delete(context.Context, int64) error
+
+		CreateBatch(context.Context, []*Post) error // For DB seeding
 	}
 	Users interface {
 		GetByID(context.Context, int64) (User, error)
 
-		Create(context.Context, *User) error
-		CreateBatch(context.Context, []*User) error
+		Create(context.Context, pgx.Tx, *User) error
+		CreateAndInvite(ctx context.Context, user *User, token string, inviteExpire time.Duration) error
 
-		Delete(context.Context, int64) error
+		CreateBatch(context.Context, []*User) error // For DB seeding
 	}
 	Comments interface {
 		GetByPostID(context.Context, int64) ([]Comment, error)
 
 		Create(context.Context, *Comment) error
-		CreateBatch(context.Context, []*Comment) error
+
+		CreateBatch(context.Context, []*Comment) error // For DB seeding
 	}
 	Follow interface {
 		Follow(ctx context.Context, followerId int64, userId int64) error
 		Unfollow(ctx context.Context, followerId int64, userId int64) error
 		//Followers(context.Context, int64) ([]User, error)
 
-		CreateBatch(context.Context, []*Follower) error
+		CreateBatch(context.Context, []*Follower) error // For DB seeding
 	}
 }
 
@@ -63,4 +66,18 @@ func NewStorage(db *pgxpool.Pool, logger *zap.SugaredLogger) Storage {
 		Comments: &CommentStore{db, storeLogger.Named("comments")},
 		Follow:   &FollowerStore{db, storeLogger.Named("followers")},
 	}
+}
+
+func withTx(db *pgxpool.Pool, ctx context.Context, fn func(pgx.Tx) error) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

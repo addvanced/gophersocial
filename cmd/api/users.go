@@ -14,7 +14,7 @@ import (
 
 const userCtxKey ctxKey = "user"
 
-// GetUser godoc
+// getUserHandler godoc
 //
 //	@Summary		Fetches a user profile
 //	@Description	Fetches a user profile by ID
@@ -40,7 +40,7 @@ type FollowUserRequest struct {
 	UserID int64 `json:"user_id" validate:"required,min=1"`
 }
 
-// FollowUser godoc
+// followUserHandler godoc
 //
 //	@Summary		Follows a user
 //	@Description	Follows a user by ID
@@ -87,7 +87,7 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// UnfollowUser gdoc
+// unfollowUserHandler gdoc
 //
 //	@Summary		Unfollow a user
 //	@Description	Unfollow a user by ID
@@ -153,7 +153,7 @@ func (app *application) addUserToCtxMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, userCtxKey, user)))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, userCtxKey, &user)))
 	})
 }
 

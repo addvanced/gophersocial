@@ -28,7 +28,12 @@ type config struct {
 	env    string
 	apiURL string
 
-	db db.PostgresConfig
+	mail mailConfig
+	db   db.PostgresConfig
+}
+
+type mailConfig struct {
+	inviteExpDuration time.Duration
 }
 
 func (app *application) mount() http.Handler {
@@ -72,13 +77,16 @@ func (app *application) mount() http.Handler {
 
 				r.Put("/follow", app.followUserHandler)
 				r.Put("/unfollow", app.unfollowUserHandler)
-				//r.Patch("/", app.updateUserHandler)
-				//r.Delete("/", app.deleteUserHandler)
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Get("/feed", app.getUserFeedHandler)
 			})
+		})
+
+		// Public routes
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/user", app.registerUserHandler)
 		})
 	})
 

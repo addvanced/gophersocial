@@ -24,7 +24,7 @@ type UpdatePostRequest struct {
 	Content *string `json:"content" validate:"omitempty,min=3,max=1000"`
 } // @name CreatePostRequest
 
-// CreatePostRequest godoc
+// createPostHandler godoc
 //
 //	@Summary		Creates a post
 //	@Description	Creates a post
@@ -70,7 +70,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// GetPost godoc
+// getPostHandler godoc
 //
 //	@Summary		Fetches a post
 //	@Description	Fetches a post by ID
@@ -98,7 +98,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdatePost godoc
+// updatePostHandler godoc
 //
 //	@Summary		Updates a post
 //	@Description	Updates a post by ID
@@ -152,7 +152,7 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// DeletePost godoc
+// deletePostHandler godoc
 //
 //	@Summary		Deletes a post
 //	@Description	Delete a post by ID
@@ -201,8 +201,7 @@ func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 			}
 			return
 		}
-
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, postCtxKey, post)))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, postCtxKey, &post)))
 	})
 }
 

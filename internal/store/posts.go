@@ -107,14 +107,6 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Page
 		q.Query(`)`)
 	}
 
-	/* Another solution to get tags, but is not case insensitive and no wildcard search
-	if len(filter.Tags) > 0 {
-		q.Query(` AND (p.tags @> `)
-		q.Param(pq.Array(filter.Tags))
-		q.Query(`)`)
-	}
-	*/
-
 	q.Query(fmt.Sprintf(" ORDER BY p.created_at %s", strings.TrimSpace(strings.ToUpper(pageable.Sort))))
 	q.Query(` OFFSET `)
 	q.Param(pageable.Offset)
@@ -128,7 +120,6 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Page
 	defer rows.Close()
 
 	var feed []PostWithMetadata
-
 	for rows.Next() {
 		var p PostWithMetadata
 		if err := rows.Scan(
@@ -267,7 +258,6 @@ func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
 	for {
 		var post Post
 		if queryErr := br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt); queryErr != nil {
-			s.logger.Errorw("Could not create posts in batch", "error", queryErr.Error())
 			break
 		}
 		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
