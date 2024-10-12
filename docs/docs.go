@@ -707,7 +707,7 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string",
-                    "maxLength": 255
+                    "maxLength": 320
                 },
                 "password": {
                     "type": "string",

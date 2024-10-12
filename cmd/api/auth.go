@@ -3,15 +3,18 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
 	"github.com/google/uuid"
 )
 
 type RegisterUserRequest struct {
 	Username string `json:"username" validate:"required,min=3,max=100"`
-	Email    string `json:"email" validate:"required,email,max=255"`
+	Email    string `json:"email" validate:"required,email,max=320"`
 	Password string `json:"password" validate:"required,min=8"`
 }
 
@@ -41,11 +44,9 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	app.logger.Info("Registering user", "username", payload.Username, "email", payload.Email)
-
 	user := &store.User{
 		Username: payload.Username,
-		Email:    payload.Email,
+		Email:    strings.ToLower(strings.TrimSpace(payload.Email)),
 	}
 
 	if err := user.Password.Set(payload.Password); err != nil {
@@ -53,9 +54,9 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// plain token to be used for email...
 	plainToken, hashedToken := app.generateToken()
 	if err := app.store.Users.CreateAndInvite(ctx, user, hashedToken, app.config.mail.inviteExpDuration); err != nil {
-		app.logger.Error("Error inviting user", "error", err)
 		switch err {
 		case store.ErrDuplicateEmail:
 			app.conflictResponse(w, r, err)
@@ -66,9 +67,31 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
-	app.logger.Infow("Generated token for user.", "plain", plainToken, "hashed", hashedToken, "user", user)
 
-	app.jsonResponse(w, http.StatusCreated, user)
+	vars := struct {
+		Username      string
+		ActivationURL string
+	}{
+		Username:      user.Username,
+		ActivationURL: fmt.Sprintf("%s/confirm/%s", app.config.frontendURL, plainToken),
+	}
+
+	err := app.mailer.Send(mailer.UserWelcomeTemplate, user.Username, user.Email, vars, (app.config.env != "production"))
+	if err != nil {
+		app.logger.Errorw("could not send welcome email", "error", err, "user", user)
+
+		// rollback user creation if email fails
+		if err := app.store.Users.Delete(ctx, user.ID); err != nil {
+			app.logger.Errorw("could not rollback user creation", "error", err, "user", user)
+		}
+
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
+		app.internalServerError(w, r, err)
+	}
 }
 
 func (app *application) generateToken() (plainToken string, hashToken string) {

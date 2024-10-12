@@ -8,6 +8,7 @@ import (
 	"github.com/addvanced/gophersocial/docs"
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
+	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,20 +21,32 @@ type ctxKey string
 type application struct {
 	config config
 	store  store.Storage
+	mailer mailer.Client
 	logger *zap.SugaredLogger
 }
 
 type config struct {
-	addr   string
-	env    string
-	apiURL string
+	addr        string
+	env         string
+	apiURL      string
+	frontendURL string
 
 	mail mailConfig
 	db   db.PostgresConfig
 }
 
 type mailConfig struct {
+	fromName  string
+	fromEmail string
+
+	resend resendConfig
+
 	inviteExpDuration time.Duration
+}
+
+type resendConfig struct {
+	apiKey    string
+	fromEmail string
 }
 
 func (app *application) mount() http.Handler {

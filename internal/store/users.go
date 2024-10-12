@@ -195,6 +195,28 @@ func (s *UserStore) Update(ctx context.Context, tx pgx.Tx, user *User) error {
 	return nil
 }
 
+func (s *UserStore) Delete(ctx context.Context, userId int64) error {
+	return withTx(s.db, ctx, func(tx pgx.Tx) error {
+		ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+		defer cancel()
+
+		deleteUserQuery := `DELETE FROM users WHERE id = $1`
+
+		res, err := tx.Exec(ctx, deleteUserQuery, userId)
+		if err != nil {
+			return err
+		} else if res.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+
+		if err := s.deleteUserInvitations(ctx, tx, userId); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (s *UserStore) Activate(ctx context.Context, token string) error {
 	return withTx(s.db, ctx, func(tx pgx.Tx) error {
 		user, err := s.getUserFromInvitation(ctx, tx, token)

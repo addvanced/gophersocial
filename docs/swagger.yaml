@@ -100,7 +100,7 @@ definitions:
   main.RegisterUserRequest:
     properties:
       email:
-        maxLength: 255
+        maxLength: 320
         type: string
       password:
         minLength: 8

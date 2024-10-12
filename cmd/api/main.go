@@ -6,6 +6,7 @@ import (
 
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
+	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
 	"go.uber.org/zap"
 )
@@ -44,11 +45,18 @@ const VERSION = "0.0.1"
 
 func main() {
 	cfg := config{
-		addr:   env.GetString("ADDR", ":8080"),
-		env:    env.GetString("ENVIRONMENT", "local"),
-		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
+		addr:        env.GetString("ADDR", ":8080"),
+		env:         env.GetString("ENVIRONMENT", "local"),
+		apiURL:      env.GetString("EXTERNAL_URL", "localhost:8080"),
+		frontendURL: env.GetString("FRONTEND_URL", "http://localhost:4000"),
 		mail: mailConfig{
-			inviteExpDuration: env.GetDuration("USER_INVITE_EXPIRE", 48*time.Hour),
+			fromName:  env.GetString("MAILER_FROM_NAME", "GopherSocial"),
+			fromEmail: env.GetString("MAILER_FROM_EMAIL", "kenneth@addvanced.dk"),
+			resend: resendConfig{
+				fromEmail: env.GetString("RESEND_FROM_EMAIL", env.GetString("EMAIL_FROM_EMAIL", "kenneth@addvanced.dk")),
+				apiKey:    env.GetString("RESEND_API_KEY", ""),
+			},
+			inviteExpDuration: env.GetDuration("USER_INVITE_EXPIRE", time.Hour*24*3),
 		},
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
@@ -78,13 +86,16 @@ func main() {
 	logger.Infoln("Database connection pool established")
 
 	store := store.NewStorage(db, logger)
+
+	mailer := mailer.NewResend(logger, cfg.mail.fromName, cfg.mail.resend.fromEmail, cfg.mail.resend.apiKey)
+
 	app := &application{
 		config: cfg,
 		store:  store,
+		mailer: mailer,
 		logger: logger,
 	}
 
 	mux := app.mount()
-
 	logger.Fatal(app.run(mux))
 }

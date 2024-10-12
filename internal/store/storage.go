@@ -40,6 +40,7 @@ type Storage struct {
 		CreateAndInvite(ctx context.Context, user *User, token string, inviteExpire time.Duration) error
 
 		Update(context.Context, pgx.Tx, *User) error
+		Delete(context.Context, int64) error
 
 		Activate(context.Context, string) error
 		CreateBatch(context.Context, []*User) error // For DB seeding
