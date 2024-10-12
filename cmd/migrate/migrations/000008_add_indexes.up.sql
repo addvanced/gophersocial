@@ -13,3 +13,4 @@ CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts (user_id);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 
 CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON followers(follower_id);
+CREATE INDEX IF NOT EXISTS idx_followers_user_id ON followers(user_id);
