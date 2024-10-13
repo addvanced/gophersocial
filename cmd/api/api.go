@@ -33,6 +33,7 @@ type config struct {
 	frontendURL string
 
 	mail mailConfig
+	auth authConfig
 	db   db.PostgresConfig
 }
 
@@ -48,6 +49,15 @@ type mailConfig struct {
 type resendConfig struct {
 	apiKey    string
 	fromEmail string
+}
+
+type authConfig struct {
+	basic basicAuthConfig
+}
+
+type basicAuthConfig struct {
+	username string
+	password string
 }
 
 func (app *application) mount() http.Handler {
@@ -74,7 +84,8 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/health", app.healthCheckHandler)
+		r.With(app.BasicAuthMiddleware()).
+			Get("/health", app.healthCheckHandler)
 
 		docsURL := fmt.Sprintf("%s/swagger/doc.json", app.config.addr)
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docsURL)))

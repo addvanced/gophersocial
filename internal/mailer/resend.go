@@ -25,7 +25,11 @@ func NewResend(fromName, fromEmail, apiKey string) Client {
 	}
 }
 
-func (s *resendMailer) Send(templateFile string, receipient EmailData, data any, _ bool) (string, error) {
+func (s *resendMailer) Send(templateFile string, receipient EmailData, data any, isSandbox bool) (string, error) {
+	if isSandbox {
+		return "SANDBOX_ID", nil
+	}
+
 	// template parsing and building
 	tmpl, err := template.ParseFS(FS, fmt.Sprintf("templates/%s", templateFile))
 	if err != nil {

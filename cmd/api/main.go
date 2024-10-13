@@ -58,6 +58,12 @@ func main() {
 			},
 			inviteExpDuration: env.GetDuration("USER_INVITE_EXPIRE", time.Hour*24*3),
 		},
+		auth: authConfig{
+			basic: basicAuthConfig{
+				username: env.GetString("BASIC_AUTH_USERNAME", "admin"),
+				password: env.GetString("BASIC_AUTH_PASSWORD", "admin"),
+			},
+		},
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
 			env.GetString("DB_PASSWORD", "password"),
