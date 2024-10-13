@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -97,6 +99,74 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	app.logger.Infow("user registered and invitation sent", "user", user, "email_response_code", response)
 
 	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
+type CreateUserJWTRequest struct {
+	Email    string `json:"email" validate:"required,email,max=320"`
+	Password string `json:"password" validate:"required,min=8"`
+}
+
+// createTokenHandler godoc
+//
+//	@Summary		Request a JWT token
+//	@Description	Request a JWT token for user authentication
+//	@Tags			authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		CreateUserJWTRequest	true	"User credentials"
+//	@Success		201		{string}	string					"Token Created"
+//	@Failure		400		{object}	error
+//	@Failure		401		{object}	error
+//	@Failure		500		{object}	error
+//	@Router			/auth/token [post]
+func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var payload CreateUserJWTRequest
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if err := Validate.StructCtx(ctx, payload); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Fetch the user from the database, by username, to check the password
+	// against the stored hash
+	user, err := app.store.Users.GetByEmail(ctx, payload.Email)
+	if err != nil {
+		switch err {
+		case store.ErrNotFound:
+			app.unauthorizedErrorResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	// Generate a new token, and add claims to it
+	iat := time.Now()
+	claims := jwt.MapClaims{
+		"sub": user.ID,
+		"exp": iat.Add(app.config.auth.jwt.expiration).Unix(),
+		"iat": iat.Unix(),
+		"nbf": iat.Unix(),
+		"iss": app.config.auth.jwt.issuer,
+		"aud": app.config.auth.jwt.issuer,
+	}
+
+	token, err := app.authenticator.GenerateToken(claims)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	// Send the token to the user
+	if err := app.jsonResponse(w, http.StatusCreated, token); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -58,7 +59,7 @@ func (s *UserStore) Create(ctx context.Context, tx pgx.Tx, user *User) error {
 	err := tx.QueryRow(ctx, query,
 		user.Username,
 		user.Password.hash,
-		user.Email,
+		strings.TrimSpace(strings.ToLower(user.Email)),
 	).Scan(
 		&user.ID,
 		&user.CreatedAt,
@@ -88,15 +89,48 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 	var user User
 
 	query := `
-		SELECT id, email, username, created_at, updated_at, is_active
+		SELECT id, email, username, password, created_at, updated_at, is_active
 		FROM users 
-		WHERE id = $1
+		WHERE id = $1 AND is_active = true
 	`
 
 	err := s.db.QueryRow(ctx, query, userId).Scan(
 		&user.ID,
 		&user.Email,
 		&user.Username,
+		&user.Password.hash,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.IsActive,
+	)
+	if err != nil {
+		switch err {
+		case pgx.ErrNoRows:
+			return User{}, ErrNotFound
+		default:
+			return User{}, err
+		}
+	}
+	return user, nil
+}
+
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) {
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	var user User
+
+	query := `
+		SELECT id, email, username, password, created_at, updated_at, is_active
+		FROM users 
+		WHERE email = $1 AND is_active = true
+	`
+
+	err := s.db.QueryRow(ctx, query, strings.TrimSpace(strings.ToLower(email))).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Password.hash,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
@@ -124,7 +158,7 @@ func (s *UserStore) CreateBatch(ctx context.Context, users []*User) error {
 	userEmailMap := make(map[string]*User)
 	batch := pgx.Batch{}
 	for _, user := range users {
-		batch.Queue(query, user.Username, user.Password.hash, user.Email, user.IsActive)
+		batch.Queue(query, user.Username, user.Password.hash, strings.TrimSpace(strings.ToLower(user.Email)), user.IsActive)
 		userEmailMap[user.Email] = user
 	}
 	br := s.db.SendBatch(ctx, &batch)
@@ -184,7 +218,7 @@ func (s *UserStore) Update(ctx context.Context, tx pgx.Tx, user *User) error {
 		WHERE id = $5
 	`
 
-	if _, err := s.db.Exec(ctx, query, user.Email, user.Username, user.IsActive, time.Now(), user.ID); err != nil {
+	if _, err := s.db.Exec(ctx, query, strings.TrimSpace(strings.ToLower(user.Email)), user.Username, user.IsActive, time.Now(), user.ID); err != nil {
 		switch err {
 		case pgx.ErrNoRows:
 			return ErrDirtyRecord

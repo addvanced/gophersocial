@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/addvanced/gophersocial/internal/auth"
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/mailer"
@@ -63,6 +64,11 @@ func main() {
 				username: env.GetString("BASIC_AUTH_USERNAME", "admin"),
 				password: env.GetString("BASIC_AUTH_PASSWORD", "admin"),
 			},
+			jwt: jwtAuthConfig{
+				secret:     env.GetString("JWT_TOKEN_SECRET", "example"),
+				issuer:     env.GetString("JWT_TOKEN_ISSUER", "gophersocial"),
+				expiration: env.GetDuration("JWT_TOKEN_EXPIRE", time.Hour*24*3),
+			},
 		},
 		db: db.NewPostgresConfig(
 			env.GetString("DB_USER", "user"),
@@ -93,13 +99,24 @@ func main() {
 
 	store := store.NewStorage(db, logger)
 
-	mailer := mailer.NewResend(cfg.mail.fromName, cfg.mail.resend.fromEmail, cfg.mail.resend.apiKey)
+	mailer := mailer.NewResend(
+		cfg.mail.fromName,
+		cfg.mail.resend.fromEmail,
+		cfg.mail.resend.apiKey,
+	)
+
+	jwtAuthenticator := auth.NewJWTAuthenticator(
+		cfg.auth.jwt.secret,
+		cfg.auth.jwt.issuer,
+		cfg.auth.jwt.issuer,
+	)
 
 	app := &application{
-		config: cfg,
-		store:  store,
-		mailer: mailer,
-		logger: logger,
+		config:        cfg,
+		store:         store,
+		mailer:        mailer,
+		authenticator: jwtAuthenticator,
+		logger:        logger,
 	}
 
 	mux := app.mount()

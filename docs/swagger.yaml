@@ -97,6 +97,18 @@ definitions:
       username:
         type: string
     type: object
+  main.CreateUserJWTRequest:
+    properties:
+      email:
+        maxLength: 320
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
   main.RegisterUserRequest:
     properties:
       email:
@@ -126,6 +138,37 @@ info:
   termsOfService: http://swagger.io/terms/
   title: GopherSocial API
 paths:
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: Request a JWT token for user authentication
+      parameters:
+      - description: User credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateUserJWTRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Token Created
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Request a JWT token
+      tags:
+      - authentication
   /auth/user:
     post:
       consumes:

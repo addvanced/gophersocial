@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/addvanced/gophersocial/docs"
+	"github.com/addvanced/gophersocial/internal/auth"
 	"github.com/addvanced/gophersocial/internal/db"
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/mailer"
@@ -20,10 +21,11 @@ import (
 type ctxKey string
 
 type application struct {
-	config config
-	store  store.Storage
-	mailer mailer.Client
-	logger *zap.SugaredLogger
+	config        config
+	store         store.Storage
+	mailer        mailer.Client
+	authenticator auth.Authenticator
+	logger        *zap.SugaredLogger
 }
 
 type config struct {
@@ -53,11 +55,18 @@ type resendConfig struct {
 
 type authConfig struct {
 	basic basicAuthConfig
+	jwt   jwtAuthConfig
 }
 
 type basicAuthConfig struct {
 	username string
 	password string
+}
+
+type jwtAuthConfig struct {
+	secret     string
+	issuer     string
+	expiration time.Duration
 }
 
 func (app *application) mount() http.Handler {
@@ -122,6 +131,7 @@ func (app *application) mount() http.Handler {
 		// Public routes
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
+			r.Post("/token", app.createTokenHandler)
 
 		})
 	})

@@ -1,17 +1,29 @@
+export ENVIRONMENT="development"
+
 # HTTP Server
 export ADDR=":8080"
 export EXTERNAL_URL="localhost:8080"
+export FRONTEND_URL="http://localhost:5173"
 export TIMEOUT_WRITE="30s"
 export TIMEOUT_READ="10s"
 export TIMEOUT_IDLE="1m"
 
+# Auth
+# Auth -> Basic
+export BASIC_AUTH_USERNAME="admin"
+export BASIC_AUTH_PASSWORD="admin"
+# Auth -> JWT
+export JWT_TOKEN_SECRET="a_super_secret_gopher_key"
+export JWT_TOKEN_ISSUER="gophersocial"
+export JWT_TOKEN_EXPIRE="24h"
+
 # Mail
 export USER_INVITE_EXPIRE="48h"
 export MAILER_FROM_NAME="GopherSocial"
-export MAILER_FROM_EMAIL="no@reply.com"
+export MAILER_FROM_EMAIL="noreply@email.com"
 # Mail -> Resend
-export RESEND_API_KEY="re_SomeApiKey"
-export RESEND_FROM_EMAIL="no@reply.com"
+export RESEND_API_KEY="re_Api_Key"
+export RESEND_FROM_EMAIL="resend@email.com"
 
 
 # Database
