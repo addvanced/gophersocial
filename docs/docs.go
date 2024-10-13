@@ -310,7 +310,7 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "204": {
+                    "202": {
                         "description": "User activated",
                         "schema": {
                             "type": "string"

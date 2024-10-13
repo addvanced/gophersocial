@@ -48,7 +48,7 @@ func main() {
 		addr:        env.GetString("ADDR", ":8080"),
 		env:         env.GetString("ENVIRONMENT", "local"),
 		apiURL:      env.GetString("EXTERNAL_URL", "localhost:8080"),
-		frontendURL: env.GetString("FRONTEND_URL", "http://localhost:4000"),
+		frontendURL: env.GetString("FRONTEND_URL", "http://localhost:5173"),
 		mail: mailConfig{
 			fromName:  env.GetString("MAILER_FROM_NAME", "GopherSocial"),
 			fromEmail: env.GetString("MAILER_FROM_EMAIL", "kenneth@addvanced.dk"),

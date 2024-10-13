@@ -43,7 +43,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			users
 //	@Produce		json
 //	@Param			token	path		string	true	"Invitation token"
-//	@Success		204		{string}	string	"User activated"
+//	@Success		202		{string}	string	"User activated"
 //	@Failure		404		{object}	error
 //	@Failure		500		{object}	error
 //	@Security		ApiKeyAuth
@@ -62,7 +62,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := app.jsonResponse(w, http.StatusNoContent, nil); err != nil {
+	if err := app.jsonResponse(w, http.StatusAccepted, nil); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
