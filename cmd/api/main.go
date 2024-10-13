@@ -87,7 +87,7 @@ func main() {
 
 	store := store.NewStorage(db, logger)
 
-	mailer := mailer.NewResend(logger, cfg.mail.fromName, cfg.mail.resend.fromEmail, cfg.mail.resend.apiKey)
+	mailer := mailer.NewResend(cfg.mail.fromName, cfg.mail.resend.fromEmail, cfg.mail.resend.apiKey)
 
 	app := &application{
 		config: cfg,

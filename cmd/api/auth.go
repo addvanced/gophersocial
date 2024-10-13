@@ -76,7 +76,12 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		ActivationURL: fmt.Sprintf("%s/confirm/%s", app.config.frontendURL, plainToken),
 	}
 
-	err := app.mailer.Send(mailer.UserWelcomeTemplate, user.Username, user.Email, vars, (app.config.env != "production"))
+	receipient := mailer.EmailData{
+		Name:  user.Username,
+		Email: user.Email,
+	}
+
+	response, err := app.mailer.Send(mailer.UserWelcomeTemplate, receipient, vars, (app.config.env != "production"))
 	if err != nil {
 		app.logger.Errorw("could not send welcome email", "error", err, "user", user)
 
@@ -88,6 +93,8 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		app.internalServerError(w, r, err)
 		return
 	}
+
+	app.logger.Infow("user registered and invitation sent", "user", user, "email_response_code", response)
 
 	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
 		app.internalServerError(w, r, err)

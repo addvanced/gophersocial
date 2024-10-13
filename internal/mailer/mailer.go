@@ -16,9 +16,14 @@ const (
 var FS embed.FS
 
 type Client interface {
-	Send(templateFile string, username, email string, data any, isSandbox bool) error
+	Send(templateFile string, email EmailData, data any, isSandbox bool) (responseCode string, err error)
 }
 
-func formatEmail(username, email string) string {
-	return fmt.Sprintf("%s <%s>", strings.TrimSpace(username), strings.TrimSpace(strings.ToLower(email)))
+type EmailData struct {
+	Name  string
+	Email string
+}
+
+func (e *EmailData) Format() string {
+	return fmt.Sprintf("%s <%s>", strings.TrimSpace(e.Name), strings.TrimSpace(strings.ToLower(e.Email)))
 }
