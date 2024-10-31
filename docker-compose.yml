@@ -1,6 +1,7 @@
 services:
   gophersocial_postgres:
     image: postgres:16.3
+    restart: always
     container_name: gophersocial_postgres
     environment:
       POSTGRES_USER: socialuser

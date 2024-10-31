@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/addvanced/gophersocial/docs"
@@ -17,6 +21,8 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
 )
+
+var ErrInvalidParameter = errors.New("invalid URL parameter")
 
 type ctxKey string
 
@@ -89,7 +95,7 @@ func (app *application) mount() http.Handler {
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("nothing here..."))
+		_, _ = w.Write([]byte("nothing here..."))
 	})
 
 	r.Route("/v1", func(r chi.Router) {
@@ -100,6 +106,7 @@ func (app *application) mount() http.Handler {
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docsURL)))
 
 		r.Route("/posts", func(r chi.Router) {
+			r.Use(app.AuthTokenMiddleware())
 			r.Post("/", app.createPostHandler)
 
 			r.Route("/{postId}", func(r chi.Router) {
@@ -115,7 +122,7 @@ func (app *application) mount() http.Handler {
 			r.Put("/activate/{token}", app.activateUserHandler)
 
 			r.Route("/{userId}", func(r chi.Router) {
-				r.Use(app.addUserToCtxMiddleware)
+				r.Use(app.AuthTokenMiddleware())
 
 				r.Get("/", app.getUserHandler)
 
@@ -124,6 +131,7 @@ func (app *application) mount() http.Handler {
 			})
 
 			r.Group(func(r chi.Router) {
+				r.Use(app.AuthTokenMiddleware())
 				r.Get("/feed", app.getUserFeedHandler)
 			})
 		})
@@ -144,6 +152,7 @@ func (app *application) run(mux http.Handler) error {
 	docs.SwaggerInfo.Version = VERSION
 	docs.SwaggerInfo.Host = app.config.apiURL
 	docs.SwaggerInfo.BasePath = "/v1"
+	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 
 	srv := &http.Server{
 		Addr:         app.config.addr,
@@ -155,4 +164,22 @@ func (app *application) run(mux http.Handler) error {
 
 	app.logger.Infow("server has started", "addr", app.config.addr)
 	return srv.ListenAndServe()
+}
+
+func (app *application) GetInt64URLParam(ctx context.Context, paramKey string) (int64, error) {
+	paramStr := strings.TrimSpace(chi.URLParamFromCtx(ctx, paramKey))
+	if paramStr != "" {
+		if param, err := strconv.ParseInt(paramStr, 10, 64); err == nil {
+			return param, nil
+		}
+	}
+	return 0, ErrInvalidParameter
+}
+
+func (app *application) GetStringURLParam(ctx context.Context, paramKey string) (string, error) {
+	param := strings.TrimSpace(chi.URLParamFromCtx(ctx, paramKey))
+	if param == "" {
+		return "", ErrInvalidParameter
+	}
+	return param, nil
 }

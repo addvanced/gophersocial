@@ -131,7 +131,7 @@ info:
     email: kenneth@addvanced.dk
     name: API Support
     url: http://www.swagger.io/support
-  description: JWT Authorization header
+  description: API for GopherSocial, a social network for gophers.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -452,8 +452,6 @@ paths:
         "500":
           description: Internal Server Error
           schema: {}
-      security:
-      - ApiKeyAuth: []
       summary: Activates a new user profile
       tags:
       - users
@@ -511,6 +509,11 @@ paths:
       summary: Fetches the user feed
       tags:
       - feed
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
 tags:
 - description: Operations related to managing posts

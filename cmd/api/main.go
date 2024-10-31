@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/addvanced/gophersocial/internal/auth"
@@ -25,13 +27,6 @@ const VERSION = "0.0.1"
 //	@license.name	Apache 2.0
 //	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
 
-//	@BasePath	/v1
-
-//	@securityDifinitions.apikey	ApiKeyAuth
-//	@in							header
-//	@name						Authorization
-//	@description				JWT Authorization header
-
 //	@tag.name			posts
 //	@tag.description	Operations related to managing posts
 //
@@ -44,7 +39,16 @@ const VERSION = "0.0.1"
 //	@tag.name			users
 //	@tag.description	Operations related to managing users
 
+// @BasePath					/v1
+//
+// @securityDefinitions.apikey	ApiKeyAuth
+// @in							header
+// @name						Authorization
+// @description
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	defer stop()
+
 	cfg := config{
 		addr:        env.GetString("ADDR", ":8080"),
 		env:         env.GetString("ENVIRONMENT", "local"),
@@ -83,11 +87,13 @@ func main() {
 		),
 	}
 
-	ctx := context.Background()
-
 	// Logger
 	logger := zap.Must(zap.NewProduction()).Sugar()
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			logger.Errorw("failed to defer logger.Sync()", "error", err.Error())
+		}
+	}()
 
 	// Database
 	db, err := db.NewPostgresDB(ctx, &cfg.db)

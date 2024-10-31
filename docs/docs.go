@@ -333,11 +333,6 @@ const docTemplate = `{
         },
         "/users/activate/{token}": {
             "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
                 "description": "Activates a new user profile by the invitation token",
                 "produces": [
                     "application/json"
@@ -784,6 +779,13 @@ const docTemplate = `{
             }
         }
     },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
     "tags": [
         {
             "description": "Operations related to managing posts",
@@ -811,7 +813,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/v1",
 	Schemes:          []string{},
 	Title:            "GopherSocial API",
-	Description:      "JWT Authorization header",
+	Description:      "API for GopherSocial, a social network for gophers.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -14,6 +14,10 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	ErrUnauthorized = fmt.Errorf("unauthorized. please provide valid credentials")
+)
+
 type RegisterUserRequest struct {
 	Username string `json:"username" validate:"required,min=3,max=100"`
 	Email    string `json:"email" validate:"required,email,max=320"`
@@ -145,6 +149,12 @@ func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Reques
 		default:
 			app.internalServerError(w, r, err)
 		}
+		return
+	}
+
+	// Check if the provided password matches the stored hash
+	if err := user.Password.Compare(payload.Password); err != nil {
+		app.unauthorizedErrorResponse(w, r, err)
 		return
 	}
 

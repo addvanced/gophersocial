@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/addvanced/gophersocial/internal/store"
-	"github.com/go-chi/chi/v5"
 )
 
 const postCtxKey ctxKey = "post"
@@ -39,13 +37,19 @@ type UpdatePostRequest struct {
 //	@Security		ApiKeyAuth
 //	@Router			/posts [post]
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	authUser := app.getAuthorizedUser(ctx)
+	if authUser == nil {
+		app.internalServerError(w, r, ErrUnauthorized)
+		return
+	}
+
 	var payload CreatePostRequest
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
-	ctx := r.Context()
 
 	if err := Validate.StructCtx(ctx, payload); err != nil {
 		app.badRequestResponse(w, r, err)
@@ -56,8 +60,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
-		// TODO: Change after auth
-		UserID: 1,
+		UserID:  authUser.ID,
 	}
 
 	if err := app.store.Posts.Create(ctx, post); err != nil {
@@ -84,9 +87,15 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{postId} [get]
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
-	post := app.getPostFromCtx(r)
+	ctx := r.Context()
 
-	comments, err := app.store.Comments.GetByPostID(r.Context(), post.ID)
+	post := app.getPostFromCtx(ctx)
+	if post == nil {
+		app.internalServerError(w, r, errors.New("could not find post"))
+		return
+	}
+
+	comments, err := app.store.Comments.GetByPostID(ctx, post.ID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
@@ -115,15 +124,19 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{postId} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
-	post := app.getPostFromCtx(r)
+	ctx := r.Context()
+
+	post := app.getPostFromCtx(ctx)
+	if post == nil {
+		app.internalServerError(w, r, errors.New("could not find post"))
+		return
+	}
 
 	var payload UpdatePostRequest
 	if err := readJSON(w, r, &payload); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
-	ctx := r.Context()
 
 	if err := Validate.StructCtx(ctx, payload); err != nil {
 		app.badRequestResponse(w, r, err)
@@ -166,9 +179,15 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Security		ApiKeyAuth
 //	@Router			/posts/{postId} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
-	post := app.getPostFromCtx(r)
+	ctx := r.Context()
 
-	if err := app.store.Posts.Delete(r.Context(), post.ID); err != nil {
+	post := app.getPostFromCtx(ctx)
+	if post == nil {
+		app.internalServerError(w, r, errors.New("could not find post"))
+		return
+	}
+
+	if err := app.store.Posts.Delete(ctx, post.ID); err != nil {
 		switch err {
 		case store.ErrNotFound:
 			app.notFoundResponse(w, r, fmt.Errorf("post with ID '%d' does not exist", post.ID))
@@ -183,13 +202,13 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 
 func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		postId, err := strconv.ParseInt(strings.TrimSpace(chi.URLParam(r, "postId")), 10, 64)
+		ctx := r.Context()
+
+		postId, err := app.GetInt64URLParam(ctx, "postId")
 		if err != nil {
-			app.internalServerError(w, r, err)
+			app.badRequestResponse(w, r, errors.New("missing post ID"))
 			return
 		}
-
-		ctx := r.Context()
 
 		post, err := app.store.Posts.GetByID(ctx, postId)
 		if err != nil {
@@ -201,13 +220,13 @@ func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 			}
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, postCtxKey, &post)))
+
+		postCtx := context.WithValue(ctx, postCtxKey, &post)
+		next.ServeHTTP(w, r.WithContext(postCtx))
 	})
 }
 
-func (app *application) getPostFromCtx(r *http.Request) *store.Post {
-	if post, ok := r.Context().Value(postCtxKey).(*store.Post); ok {
-		return post
-	}
-	return nil
+func (app *application) getPostFromCtx(ctx context.Context) *store.Post {
+	post, _ := ctx.Value(postCtxKey).(*store.Post)
+	return post
 }

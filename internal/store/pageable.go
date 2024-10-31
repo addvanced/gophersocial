@@ -9,7 +9,7 @@ import (
 type Pageable struct {
 	Limit  int    `json:"limit" validate:"gte=1,lte=20"`
 	Offset int    `json:"offset" validate:"gte=0"`
-	Sort   string `json:"sort" validate:"oneof=asc desc"`
+	Sort   string `json:"sort" validate:"oneof=asc desc ASC DESC"`
 }
 
 func (p Pageable) Parse(r *http.Request) Pageable {
@@ -27,7 +27,7 @@ func (p Pageable) Parse(r *http.Request) Pageable {
 		}
 	}
 
-	if sort := strings.TrimSpace(strings.ToLower(q.Get("sort"))); sort != "" {
+	if sort := strings.TrimSpace(strings.ToUpper(q.Get("sort"))); sort != "" {
 		p.Sort = sort
 	}
 

@@ -3,6 +3,14 @@ include .envrc
 MIGRATIONS_PATH := ./cmd/migrate/migrations
 DATABASE_CONNSTR := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)
 
+.PHONY: db/start
+db/start:
+	@docker compose up -d
+
+.PHONY: db/stop
+db/stop:
+	@docker compose down
+
 .PHONY: db/migrate/create
 db/migrate/create:
 	@output=$$(migrate create -seq -ext sql -dir $(MIGRATIONS_PATH) $(filter-out $@,$(MAKECMDGOALS)) 2>&1); \
@@ -40,4 +48,4 @@ db/seed:
 
 .PHONY: docs
 docs:
-	@swag init -g ./api/main.go -d cmd,internal && swag fmt
+	@swag init -d cmd,internal -g api/main.go && swag fmt

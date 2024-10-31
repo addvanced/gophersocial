@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 var (
 	ErrDuplicateEmail    = fmt.Errorf("email already exists")
 	ErrDuplicateUsername = fmt.Errorf("username already exists")
+	ErrInvalidPassword   = fmt.Errorf("invalid password")
 )
 
 type User struct {
@@ -42,6 +44,16 @@ func (p *password) Set(text string) error {
 	}
 	p.text = &text
 	p.hash = hash
+	return nil
+}
+
+func (p *password) Compare(password string) error {
+	if password == "" {
+		return errors.New("no password provided")
+	}
+	if err := bcrypt.CompareHashAndPassword(p.hash, []byte(password)); err != nil {
+		return ErrInvalidPassword
+	}
 	return nil
 }
 
