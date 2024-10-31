@@ -39,7 +39,7 @@ type UpdatePostRequest struct {
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	authUser := app.getAuthorizedUser(ctx)
+	authUser := app.getAuthedUser(ctx)
 	if authUser == nil {
 		app.internalServerError(w, r, ErrUnauthorized)
 		return

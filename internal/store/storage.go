@@ -60,6 +60,9 @@ type Storage struct {
 
 		CreateBatch(context.Context, []*Follower) error // For DB seeding
 	}
+	Roles interface {
+		GetByName(context.Context, string) (Role, error)
+	}
 }
 
 func NewStorage(db *pgxpool.Pool, logger *zap.SugaredLogger) Storage {
@@ -70,6 +73,7 @@ func NewStorage(db *pgxpool.Pool, logger *zap.SugaredLogger) Storage {
 		Users:    &UserStore{db, storeLogger.Named("users")},
 		Comments: &CommentStore{db, storeLogger.Named("comments")},
 		Follow:   &FollowerStore{db, storeLogger.Named("followers")},
+		Roles:    &RoleStore{db, storeLogger.Named("roles")},
 	}
 }
 
@@ -78,7 +82,10 @@ func withTx(db *pgxpool.Pool, ctx context.Context, fn func(pgx.Tx) error) error 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	if err := fn(tx); err != nil {
 		return err

@@ -86,7 +86,7 @@ func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]Comment
 }
 
 func (s *CommentStore) CreateBatch(ctx context.Context, comments []*Comment) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	bctx, cancel := context.WithTimeout(ctx, time.Minute*3)
 	defer cancel()
 
 	query := `INSERT INTO comments (post_id, user_id, content) VALUES ($1, $2, $3)`
@@ -95,7 +95,7 @@ func (s *CommentStore) CreateBatch(ctx context.Context, comments []*Comment) err
 	for _, comment := range comments {
 		batch.Queue(query, comment.PostID, comment.UserID, comment.Content)
 	}
-	br := s.db.SendBatch(ctx, &batch)
+	br := s.db.SendBatch(bctx, &batch)
 	defer br.Close()
 
 	return nil

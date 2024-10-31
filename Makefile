@@ -28,23 +28,35 @@ db/migrate/create:
 
 .PHONY: db/migrate/up
 db/migrate/up:
+	@make db/start
 	@echo "Running database 'up'-migrations..."
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) up
 
 .PHONY: db/migrate/down
 db/migrate/down:
+	@make db/start
 	@echo "Running database 'down'-migration(s)..."
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) down $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: db/migrate/force
 db/migrate/force:
+	@make db/start
 	@echo "Running database 'up'-migrations with force..."
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) force $(filter-out $@,$(MAKECMDGOALS))
 
 .PHONY: db/seed
 db/seed:
+	@make db/start
 	@echo "Seeding database..."
 	@go run ./cmd/migrate/seed/main.go
+
+.PHONY: db/reset
+db/reset:
+	@make db/start
+	@echo "Resetting database..."
+	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) down -all
+	@make db/migrate/up
+	@make db/seed
 
 .PHONY: docs
 docs:

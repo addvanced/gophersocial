@@ -74,7 +74,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	authUser := app.getAuthorizedUser(ctx)
+	authUser := app.getAuthedUser(ctx)
 	if authUser == nil {
 		app.internalServerError(w, r, ErrUnauthorized)
 		return
@@ -122,7 +122,7 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	authUser := app.getAuthorizedUser(ctx)
+	authUser := app.getAuthedUser(ctx)
 	if authUser == nil {
 		app.internalServerError(w, r, ErrUnauthorized)
 		return
@@ -186,7 +186,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (app *application) getAuthorizedUser(ctx context.Context) *store.User {
+func (app *application) getAuthedUser(ctx context.Context) *store.User {
 	user, _ := ctx.Value(userCtxKey).(*store.User)
 	return user
 }

@@ -235,7 +235,7 @@ func (s *PostStore) Delete(ctx context.Context, postId int64) error {
 }
 
 func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	bctx, cancel := context.WithTimeout(ctx, time.Minute*3)
 	defer cancel()
 
 	query := `
@@ -244,27 +244,28 @@ func (s *PostStore) CreateBatch(ctx context.Context, posts []*Post) error {
 		RETURNING id, title, content, tags, version, created_at, updated_at
 	`
 
+	postKeyFn := func(post *Post) string {
+		return fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
+	}
+
 	postKeyMap := make(map[string]*Post)
 	batch := pgx.Batch{}
+
 	for i, post := range posts {
 		timeNow := pgtype.Timestamptz{Time: time.Now().Add(time.Duration(i) * time.Minute), Valid: true}
 		batch.Queue(query, post.Title, post.Content, post.Tags, post.UserID, timeNow, timeNow)
-		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
-		postKeyMap[postKey] = post
+		postKeyMap[postKeyFn(post)] = post
 	}
-	br := s.db.SendBatch(ctx, &batch)
+	br := s.db.SendBatch(bctx, &batch)
 	defer br.Close()
 
-	for {
-		var post Post
-		if queryErr := br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt); queryErr != nil {
-			break
+	for post := new(Post); br.QueryRow().Scan(&post.ID, &post.Title, &post.Content, &post.Tags, &post.Version, &post.CreatedAt, &post.UpdatedAt) == nil; {
+		if p, ok := postKeyMap[postKeyFn(post)]; ok {
+			p.ID = post.ID
+			p.Version = post.Version
+			p.CreatedAt = post.CreatedAt
+			p.UpdatedAt = post.UpdatedAt
 		}
-		postKey := fmt.Sprintf("%s", md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", post.Title, post.Content, strings.Join(post.Tags, "-")))))
-		postKeyMap[postKey].ID = post.ID
-		postKeyMap[postKey].Version = post.Version
-		postKeyMap[postKey].CreatedAt = post.CreatedAt
-		postKeyMap[postKey].UpdatedAt = post.UpdatedAt
 	}
 	return nil
 }

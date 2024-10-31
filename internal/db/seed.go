@@ -3,12 +3,14 @@ package db
 import (
 	"context"
 	"fmt"
-	"slices"
+	"strings"
 	"sync"
+	"time"
 
 	"math/rand"
 
 	"github.com/addvanced/gophersocial/internal/store"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -229,99 +231,122 @@ var (
 	}
 )
 
-func Seed(ctx context.Context, store store.Storage) {
+func Seed(ctx context.Context, st store.Storage) {
 	var (
 		userNum   = 200
 		followNum = 10000
 
 		postNum    = 200
-		commentNum = 500000
+		commentNum = 10000
+
+		startTime = time.Now()
 	)
 
-	store.Logger.Infoln("Seeding database...")
+	st.Logger.Infoln("Seeding database...")
 
-	store.Logger.Infof(" - Generating %d users...\n", userNum)
 	users := generateUsers(userNum)
-	if err := store.Users.CreateBatch(ctx, users); err != nil {
-		store.Logger.Errorw("Could not create users", "error", err.Error())
+	st.Logger.Infof(" - Saving %d users + 1 superadmin in DB...", len(users)-1)
+	if err := st.Users.CreateBatch(ctx, users); err != nil {
+		st.Logger.Errorw("Could not create users", "error", err.Error())
 		return
 	}
 
-	store.Logger.Infof(" - Generating %d followers...\n", followNum)
 	follows := generateFollowers(followNum, users)
-	if err := store.Follow.CreateBatch(ctx, follows); err != nil {
-		store.Logger.Errorw("Could not create follows", "error", err.Error())
+	st.Logger.Infof(" - Saving %d unique followings in DB...", len(follows))
+	if err := st.Follow.CreateBatch(ctx, follows); err != nil {
+		st.Logger.Errorw("Could not create follows", "error", err.Error())
 		return
 	}
 
-	store.Logger.Infof(" - Generating %d posts...\n", postNum)
 	posts := generatePosts(postNum, users)
-	if err := store.Posts.CreateBatch(ctx, posts); err != nil {
-		store.Logger.Errorw("Could not create posts", "error", err.Error())
+	st.Logger.Infof(" - Saving %d posts in DB...", len(posts))
+	if err := st.Posts.CreateBatch(ctx, posts); err != nil {
+		st.Logger.Errorw("Could not create posts", "error", err.Error())
 		return
 	}
 
-	store.Logger.Infof(" - Generating %d comments...\n", commentNum)
 	comments := generateComments(commentNum, users, posts)
-	if err := store.Comments.CreateBatch(ctx, comments); err != nil {
-		store.Logger.Errorw("Could not create users", "error", err.Error())
-		return
+	st.Logger.Infof(" - Saving %d comments in DB...", len(comments))
+	if err := storeCommentsInBatch(ctx, st, comments, len(comments)/10, 10); err != nil {
+		st.Logger.Errorw("Could not create users", "error", err.Error())
 	}
 
-	store.Logger.Infoln("Database seeding complete!")
+	st.Logger.Infof("Database seeding complete in %.2fs", time.Since(startTime).Seconds())
 }
 
 func generateUsers(num int) []*store.User {
-	users := make([]*store.User, num)
+	users := make([]*store.User, num+1)
+
+	superAdminUser := &store.User{
+		Username: "kenneth",
+		Email:    "kontakt@kthomsen.dk",
+		IsActive: true,
+		RoleID:   4,
+	}
+	_ = superAdminUser.Password.Set("Password123!")
+
+	users[0] = superAdminUser
 
 	wg := sync.WaitGroup{}
 	wg.Add(num)
-	for i := 0; i < num; i++ {
+	for i := 1; i <= num; i++ {
 		go func() {
 			defer wg.Done()
 			username := fmt.Sprintf("%s%d", usernames[i%len(usernames)], i)
 			user := &store.User{
 				Username: username,
-				Email:    fmt.Sprintf("%s@example.com", username),
+				Email:    fmt.Sprintf("%s@example.com", strings.ToLower(username)),
 				IsActive: rand.Intn(2) == 0, // Randomly set IsActive to true or false
+				RoleID:   1,
 			}
-			user.Password.Set(fmt.Sprintf("%sPassword", username))
-			users[i] = user
+			if err := user.Password.Set(fmt.Sprintf("%sPassword", username)); err == nil {
+				users[i] = user
+			}
 		}()
 	}
 	wg.Wait()
-
 	return users
 }
 
 func generateFollowers(num int, users []*store.User) []*store.Follower {
-	followers := make([]*store.Follower, 0, num)
-	existingPairs := []string{}
-
+	followers := make([]*store.Follower, 0)
 	activeUsers := make([]*store.User, 0)
+
+	// Filter active users
 	for _, user := range users {
 		if user.IsActive {
 			activeUsers = append(activeUsers, user)
 		}
 	}
+
 	numActiveUsers := len(activeUsers)
+	if maxUserCombinations := numActiveUsers * (numActiveUsers - 1); maxUserCombinations < num {
+		num = maxUserCombinations
+	}
 
-	for len(followers) < num {
-		user := activeUsers[rand.Intn(numActiveUsers)]
-		follower := activeUsers[rand.Intn(numActiveUsers)]
-
-		pairKey := fmt.Sprintf("%d-%d", user.ID, follower.ID)
-		// Check if userID == followerID or the pair already exists
-		if slices.Contains(existingPairs, pairKey) || user.ID == follower.ID {
-			continue
+	// Step 1: Generate all unique combinations
+	allPairs := make([][2]int, 0)
+	for i := 0; i < numActiveUsers; i++ {
+		for j := 0; j < numActiveUsers; j++ {
+			if i != j {
+				allPairs = append(allPairs, [2]int{i, j})
+			}
 		}
+	}
 
-		// Add the new pair to existingPairs and followers
-		existingPairs = append(existingPairs, pairKey)
+	// Step 2: Randomly select pairs and remove them from allPairs
+	for len(followers) < num && len(allPairs) > 0 {
+		index := rand.Intn(len(allPairs))
+		pair := allPairs[index]
+
+		// Create a new follower with the selected pair
 		followers = append(followers, &store.Follower{
-			UserID:     user.ID,
-			FollowerID: follower.ID,
+			UserID:     activeUsers[pair[0]].ID,
+			FollowerID: activeUsers[pair[1]].ID,
 		})
+
+		// Remove the selected pair from allPairs
+		allPairs = append(allPairs[:index], allPairs[index+1:]...)
 	}
 
 	return followers
@@ -335,13 +360,11 @@ func generatePosts(num int, users []*store.User) []*store.Post {
 	for i := 0; i < num; i++ {
 		go func() {
 			defer wg.Done()
-			user := users[rand.Intn(len(users))]
-
 			posts[i] = &store.Post{
 				Title:   titles[rand.Intn(len(titles))],
 				Content: contents[rand.Intn(len(contents))],
 				Tags:    getRandomTags(),
-				UserID:  user.ID,
+				UserID:  users[rand.Intn(len(users))].ID,
 			}
 		}()
 	}
@@ -357,17 +380,61 @@ func generateComments(num int, users []*store.User, posts []*store.Post) []*stor
 	for i := 0; i < num; i++ {
 		go func() {
 			defer wg.Done()
+			postID := posts[rand.Intn(len(posts))].ID
+			for postID == 0 {
+				postID = posts[rand.Intn(len(posts))].ID
+			}
+			userID := users[rand.Intn(len(users))].ID
+			for userID == 0 {
+				userID = users[rand.Intn(len(users))].ID
+			}
+
 			cms[i] = &store.Comment{
-				PostID:  posts[rand.Intn(len(posts))].ID,
-				UserID:  users[rand.Intn(len(users))].ID,
+				PostID:  postID,
+				UserID:  userID,
 				Content: comments[rand.Intn(len(comments))],
 			}
 		}()
 	}
 	wg.Wait()
+
 	return cms
 }
 
+func storeCommentsInBatch(ctx context.Context, st store.Storage, comments []*store.Comment, batchSize int, maxParallel int) error {
+	batchChan := make(chan []*store.Comment, (len(comments)+batchSize-1)/batchSize) // Channel to hold batches
+	// Split comments into batches and send them to the channel
+	for i := 0; i < len(comments); i += batchSize {
+		end := i + batchSize
+		if end > len(comments) {
+			end = len(comments)
+		}
+		batchChan <- comments[i:end]
+	}
+	close(batchChan) // Close the channel after sending all batches
+	// Use errgroup to manage goroutines
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	// Launch 20 goroutines to process the batches in parallel
+	for i := 0; i < maxParallel; i++ {
+		eg.Go(func() error {
+			for batch := range batchChan {
+				if err := st.Comments.CreateBatch(egCtx, batch); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	// Wait for all goroutines to complete and return any error encountered
+	if err := eg.Wait(); err != nil {
+		st.Logger.Errorw("Could not create comments", "error", err)
+		return err
+	}
+	return nil
+}
 func getRandomTags() []string {
 	numTags := rand.Intn(3) + 2 // Random number between 2 and 4
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/addvanced/gophersocial/internal/store"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/net/context"
 )
@@ -77,4 +78,40 @@ func (app *application) BasicAuthMiddleware() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func (app *application) checkPostOwnership(requiredRole string, next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		user := app.getAuthedUser(ctx)
+		post := app.getPostFromCtx(ctx)
+
+		if post.UserID == user.ID {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		allowed, err := app.checkRolePrecedence(ctx, user, requiredRole)
+		if err != nil {
+			app.internalServerError(w, r, err)
+			return
+		}
+
+		if !allowed {
+			app.forbiddenResponse(w, r, errors.New("user does not own post"))
+			return
+		}
+		next.ServeHTTP(w, r)
+
+	})
+}
+
+func (app *application) checkRolePrecedence(ctx context.Context, user *store.User, requiredRole string) (bool, error) {
+	role, err := app.store.Roles.GetByName(ctx, requiredRole)
+	if err != nil {
+		return false, err
+	}
+
+	return user.Role.Level >= role.Level, nil
 }

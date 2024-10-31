@@ -82,6 +82,17 @@ definitions:
       version:
         type: integer
     type: object
+  Role:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+    type: object
   User:
     properties:
       created_at:
@@ -92,6 +103,8 @@ definitions:
         type: integer
       is_active:
         type: boolean
+      role:
+        $ref: '#/definitions/Role'
       updated_at:
         type: string
       username:

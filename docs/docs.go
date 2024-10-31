@@ -715,6 +715,23 @@ const docTemplate = `{
                 }
             }
         },
+        "Role": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "User": {
             "type": "object",
             "properties": {
@@ -729,6 +746,9 @@ const docTemplate = `{
                 },
                 "is_active": {
                     "type": "boolean"
+                },
+                "role": {
+                    "$ref": "#/definitions/Role"
                 },
                 "updated_at": {
                     "type": "string"

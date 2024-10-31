@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -30,6 +31,8 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	IsActive  bool      `json:"is_active"`
+	RoleID    int64     `json:"-"`
+	Role      Role      `json:"role"`
 } // @name User
 
 type password struct {
@@ -64,19 +67,21 @@ type UserStore struct {
 
 func (s *UserStore) Create(ctx context.Context, tx pgx.Tx, user *User) error {
 	query := `
-		INSERT INTO users (username, password, email)
-		VALUES ($1, $2, $3) RETURNING id, created_at, updated_at, is_active
+		INSERT INTO users (username, password, email, role_id)
+		VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4)) RETURNING id, created_at, updated_at, is_active, role_id
 	`
 
 	err := tx.QueryRow(ctx, query,
 		user.Username,
 		user.Password.hash,
 		strings.TrimSpace(strings.ToLower(user.Email)),
+		cmp.Or(strings.ToLower(strings.TrimSpace(user.Role.Name)), "user"),
 	).Scan(
 		&user.ID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
+		&user.RoleID,
 	)
 
 	if err != nil {
@@ -101,9 +106,10 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 	var user User
 
 	query := `
-		SELECT id, email, username, password, created_at, updated_at, is_active
-		FROM users 
-		WHERE id = $1 AND is_active = true
+		SELECT u.id, u.email, u.username, u.password, u.created_at, u.updated_at, u.is_active, u.role_id, r.*
+		FROM users u
+		JOIN roles r ON u.role_id = r.id
+		WHERE u.id = $1 AND u.is_active = true
 	`
 
 	err := s.db.QueryRow(ctx, query, userId).Scan(
@@ -114,6 +120,13 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
+		&user.RoleID,
+		&user.Role.ID,
+		&user.Role.Name,
+		&user.Role.Level,
+		&user.Role.Description,
+		&user.Role.CreatedAt,
+		&user.Role.UpdatedAt,
 	)
 	if err != nil {
 		switch err {
@@ -133,9 +146,10 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) 
 	var user User
 
 	query := `
-		SELECT id, email, username, password, created_at, updated_at, is_active
-		FROM users 
-		WHERE email = $1 AND is_active = true
+		SELECT u.id, u.email, u.username, u.password, u.created_at, u.updated_at, u.is_active, u.role_id, r.*
+		FROM users u
+		JOIN roles r ON u.role_id = r.id
+		WHERE u.email = $1 AND u.is_active = true
 	`
 
 	err := s.db.QueryRow(ctx, query, strings.TrimSpace(strings.ToLower(email))).Scan(
@@ -146,6 +160,13 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) 
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
+		&user.RoleID,
+		&user.Role.ID,
+		&user.Role.Name,
+		&user.Role.Level,
+		&user.Role.Description,
+		&user.Role.CreatedAt,
+		&user.Role.UpdatedAt,
 	)
 	if err != nil {
 		switch err {
@@ -159,31 +180,33 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) 
 }
 
 func (s *UserStore) CreateBatch(ctx context.Context, users []*User) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	bctx, cancel := context.WithTimeout(ctx, time.Minute*3)
 	defer cancel()
 
-	query := `
-		INSERT INTO users (username, password, email, is_active)
-		VALUES ($1, $2, $3, $4) RETURNING id, email, created_at, updated_at
-	`
-
 	userEmailMap := make(map[string]*User)
+
+	query := `
+		INSERT INTO users (username, password, email, is_active, role_id)
+		VALUES ($1, $2, $3, $4, (SELECT id FROM roles WHERE name = $5)) RETURNING id, email, created_at, updated_at, role_id
+		`
 	batch := pgx.Batch{}
+
 	for _, user := range users {
-		batch.Queue(query, user.Username, user.Password.hash, strings.TrimSpace(strings.ToLower(user.Email)), user.IsActive)
 		userEmailMap[user.Email] = user
+		role := cmp.Or(strings.TrimSpace(strings.ToLower(user.Role.Name)), "user")
+		batch.Queue(query, user.Username, user.Password.hash, user.Email, user.IsActive, role)
 	}
-	br := s.db.SendBatch(ctx, &batch)
+
+	br := s.db.SendBatch(bctx, &batch)
 	defer br.Close()
 
-	for {
-		var user User
-		if queryErr := br.QueryRow().Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt); queryErr != nil {
-			break
+	for user := new(User); br.QueryRow().Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt, &user.RoleID) == nil; {
+		if u, ok := userEmailMap[user.Email]; ok {
+			u.ID = user.ID
+			u.CreatedAt = user.CreatedAt
+			u.UpdatedAt = user.UpdatedAt
+			u.RoleID = user.RoleID
 		}
-		userEmailMap[user.Email].ID = user.ID
-		userEmailMap[user.Email].CreatedAt = user.CreatedAt
-		userEmailMap[user.Email].UpdatedAt = user.UpdatedAt
 	}
 	return nil
 }
@@ -226,11 +249,11 @@ func (s *UserStore) Update(ctx context.Context, tx pgx.Tx, user *User) error {
 
 	query := `
 		UPDATE users 
-		SET email = $1, username = $2, is_active = $3, updated_at = $4
-		WHERE id = $5
+		SET email = $1, username = $2, is_active = $3, role_id = (SELECT id FROM roles WHERE name = $4), updated_at = $5
+		WHERE id = $6
 	`
 
-	if _, err := s.db.Exec(ctx, query, strings.TrimSpace(strings.ToLower(user.Email)), user.Username, user.IsActive, time.Now(), user.ID); err != nil {
+	if _, err := s.db.Exec(ctx, query, strings.TrimSpace(strings.ToLower(user.Email)), user.Username, user.IsActive, cmp.Or(strings.ToLower(strings.TrimSpace(user.Role.Name)), "user"), time.Now(), user.ID); err != nil {
 		switch err {
 		case pgx.ErrNoRows:
 			return ErrDirtyRecord
@@ -289,9 +312,11 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx pgx.Tx, token 
 
 	query := `
 		SELECT 
-			u.id, u.username, u.email, u.created_at, u.updated_at, u.is_active
-		FROM users u LEFT JOIN user_invitations ui ON u.id = ui.user_id
-		WHERE ui.token = $1 AND ui.expire_at > $2
+			u.id, u.username, u.email, u.created_at, u.updated_at, u.is_active, u.role_id, r.*
+		FROM users u
+		JOIN roles r ON u.role_id = r.id
+		LEFT JOIN user_invitations i ON u.id = i.user_id
+		WHERE i.token = $1 AND i.expire_at > $2
 	`
 
 	hash := sha256.Sum256([]byte(token))
@@ -303,11 +328,19 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx pgx.Tx, token 
 		time.Now(),
 	).Scan(
 		&user.ID,
-		&user.Username,
 		&user.Email,
+		&user.Username,
+		&user.Password.hash,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.IsActive,
+		&user.RoleID,
+		&user.Role.ID,
+		&user.Role.Name,
+		&user.Role.Level,
+		&user.Role.Description,
+		&user.Role.CreatedAt,
+		&user.Role.UpdatedAt,
 	); err != nil {
 		switch err {
 		case pgx.ErrNoRows:
