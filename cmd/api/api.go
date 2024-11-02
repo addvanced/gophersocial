@@ -109,7 +109,7 @@ func (app *application) mount() http.Handler {
 			r.Use(app.AuthTokenMiddleware())
 			r.Post("/", app.createPostHandler)
 
-			r.Route("/{postId}", func(r chi.Router) {
+			r.Route("/{id}", func(r chi.Router) {
 				r.Use(app.addPostToCtxMiddleware)
 
 				r.Get("/", app.getPostHandler)
@@ -121,7 +121,7 @@ func (app *application) mount() http.Handler {
 		r.Route("/users", func(r chi.Router) {
 			r.Put("/activate/{token}", app.activateUserHandler)
 
-			r.Route("/{userId}", func(r chi.Router) {
+			r.Route("/{id}", func(r chi.Router) {
 				r.Use(app.AuthTokenMiddleware())
 
 				r.Get("/", app.getUserHandler)
@@ -164,6 +164,10 @@ func (app *application) run(mux http.Handler) error {
 
 	app.logger.Infow("server has started", "addr", app.config.addr)
 	return srv.ListenAndServe()
+}
+
+func (app *application) GetIDFromURL(ctx context.Context) (int64, error) {
+	return app.GetInt64URLParam(ctx, "id")
 }
 
 func (app *application) GetInt64URLParam(ctx context.Context, paramKey string) (int64, error) {

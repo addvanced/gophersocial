@@ -35,7 +35,7 @@ const userCtxKey ctxKey = "user"
 func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	userID, err := app.GetInt64URLParam(ctx, "id")
+	userID, err := app.GetIDFromURL(ctx)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -65,12 +65,12 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Param			userId	path		int		true	"User ID"
-//	@Success		204		{string}	string	"User followed"
-//	@Failure		400		{object}	error	"User payload missing"
-//	@Failure		404		{object}	error	"User not found"
+//	@Param			id	path		int		true	"User ID"
+//	@Success		204	{string}	string	"User followed"
+//	@Failure		400	{object}	error	"User payload missing"
+//	@Failure		404	{object}	error	"User not found"
 //	@Security		ApiKeyAuth
-//	@Router			/users/{userId}/follow [put]
+//	@Router			/users/{id}/follow [put]
 func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -80,7 +80,7 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, err := app.GetInt64URLParam(ctx, "userId")
+	userID, err := app.GetIDFromURL(ctx)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -113,12 +113,12 @@ func (app *application) followUserHandler(w http.ResponseWriter, r *http.Request
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Param			userId	path		int		true	"User ID"
-//	@Success		204		{string}	string	"User unfollowed"
-//	@Failure		400		{object}	error	"User payload missing"
-//	@Failure		404		{object}	error	"User not found"
+//	@Param			id	path		int		true	"User ID"
+//	@Success		204	{string}	string	"User unfollowed"
+//	@Failure		400	{object}	error	"User payload missing"
+//	@Failure		404	{object}	error	"User not found"
 //	@Security		ApiKeyAuth
-//	@Router			/users/{userId}/unfollow [put]
+//	@Router			/users/{id}/unfollow [put]
 func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -128,7 +128,7 @@ func (app *application) unfollowUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userID, err := app.GetInt64URLParam(ctx, "userId")
+	userID, err := app.GetIDFromURL(ctx)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return

@@ -15,12 +15,12 @@ type CreatePostRequest struct {
 	Title   string   `json:"title" validate:"required,min=3,max=200"`
 	Content string   `json:"content" validate:"required,min=3,max=1000"`
 	Tags    []string `json:"tags"`
-} // @name CreatePostRequest
+} //	@name	CreatePostRequest
 
 type UpdatePostRequest struct {
 	Title   *string `json:"title" validate:"omitempty,min=3,max=200"`
 	Content *string `json:"content" validate:"omitempty,min=3,max=1000"`
-} // @name CreatePostRequest
+} //	@name	CreatePostRequest
 
 // createPostHandler godoc
 //
@@ -80,12 +80,12 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
-//	@Param			postId	path		int	true	"Post ID"
-//	@Success		200		{object}	Post
-//	@Failure		404		{object}	error
-//	@Failure		500		{object}	error
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	Post
+//	@Failure		404	{object}	error
+//	@Failure		500	{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/posts/{postId} [get]
+//	@Router			/posts/{id} [get]
 func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -114,7 +114,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
-//	@Param			postId	path		int					true	"Post ID"
+//	@Param			id		path		int					true	"Post ID"
 //	@Param			payload	body		UpdatePostRequest	true	"Post request payload"
 //	@Success		200		{object}	Post
 //	@Failure		400		{object}	error
@@ -122,7 +122,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	error
 //	@Failure		500		{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/posts/{postId} [patch]
+//	@Router			/posts/{id} [patch]
 func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -172,12 +172,12 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 //	@Tags			posts
 //	@Accept			json
 //	@Produce		json
-//	@Param			postId	path		int	true	"Post ID"
-//	@Success		204		{object}	string
-//	@Failure		404		{object}	error
-//	@Failure		500		{object}	error
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		204	{object}	string
+//	@Failure		404	{object}	error
+//	@Failure		500	{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/posts/{postId} [delete]
+//	@Router			/posts/{id} [delete]
 func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -204,24 +204,24 @@ func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		postId, err := app.GetInt64URLParam(ctx, "postId")
+		postID, err := app.GetIDFromURL(ctx)
 		if err != nil {
 			app.badRequestResponse(w, r, errors.New("missing post ID"))
 			return
 		}
 
-		post, err := app.store.Posts.GetByID(ctx, postId)
+		post, err := app.store.Posts.GetByID(ctx, postID)
 		if err != nil {
 			switch err {
 			case store.ErrNotFound:
-				app.notFoundResponse(w, r, fmt.Errorf("post with ID '%d' was not found", postId))
+				app.notFoundResponse(w, r, fmt.Errorf("post with ID '%d' was not found", postID))
 			default:
 				app.internalServerError(w, r, err)
 			}
 			return
 		}
 
-		postCtx := context.WithValue(ctx, postCtxKey, &post)
+		postCtx := context.WithValue(ctx, postCtxKey, post)
 		next.ServeHTTP(w, r.WithContext(postCtx))
 	})
 }

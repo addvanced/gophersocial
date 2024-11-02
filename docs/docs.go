@@ -183,7 +183,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/posts/{postId}": {
+        "/posts/{id}": {
             "get": {
                 "security": [
                     {
@@ -205,7 +205,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -248,7 +248,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -291,7 +291,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -500,7 +500,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/{userId}/follow": {
+        "/users/{id}/follow": {
             "put": {
                 "security": [
                     {
@@ -522,7 +522,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "User ID",
-                        "name": "userId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -545,7 +545,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/{userId}/unfollow": {
+        "/users/{id}/unfollow": {
             "put": {
                 "security": [
                     {
@@ -567,7 +567,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "User ID",
-                        "name": "userId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }

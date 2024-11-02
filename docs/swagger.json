@@ -175,7 +175,7 @@
                 }
             }
         },
-        "/posts/{postId}": {
+        "/posts/{id}": {
             "get": {
                 "security": [
                     {
@@ -197,7 +197,7 @@
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -240,7 +240,7 @@
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -283,7 +283,7 @@
                     {
                         "type": "integer",
                         "description": "Post ID",
-                        "name": "postId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -492,7 +492,7 @@
                 }
             }
         },
-        "/users/{userId}/follow": {
+        "/users/{id}/follow": {
             "put": {
                 "security": [
                     {
@@ -514,7 +514,7 @@
                     {
                         "type": "integer",
                         "description": "User ID",
-                        "name": "userId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -537,7 +537,7 @@
                 }
             }
         },
-        "/users/{userId}/unfollow": {
+        "/users/{id}/unfollow": {
             "put": {
                 "security": [
                     {
@@ -559,7 +559,7 @@
                     {
                         "type": "integer",
                         "description": "User ID",
-                        "name": "userId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }

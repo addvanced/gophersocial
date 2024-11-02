@@ -55,7 +55,7 @@ func (app *application) AuthTokenMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			userCtx := context.WithValue(ctx, userCtxKey, &user)
+			userCtx := context.WithValue(ctx, userCtxKey, user)
 			next.ServeHTTP(w, r.WithContext(userCtx))
 		})
 	}

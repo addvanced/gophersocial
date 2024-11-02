@@ -99,7 +99,7 @@ func (s *UserStore) Create(ctx context.Context, tx pgx.Tx, user *User) error {
 	return nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
+func (s *UserStore) GetByID(ctx context.Context, id int64) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -112,7 +112,7 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 		WHERE u.id = $1 AND u.is_active = true
 	`
 
-	err := s.db.QueryRow(ctx, query, userId).Scan(
+	err := s.db.QueryRow(ctx, query, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.Username,
@@ -131,15 +131,15 @@ func (s *UserStore) GetByID(ctx context.Context, userId int64) (User, error) {
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return User{}, ErrNotFound
+			return nil, ErrNotFound
 		default:
-			return User{}, err
+			return nil, err
 		}
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) {
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -171,12 +171,12 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (User, error) 
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return User{}, ErrNotFound
+			return nil, ErrNotFound
 		default:
-			return User{}, err
+			return nil, err
 		}
 	}
-	return user, nil
+	return &user, nil
 }
 
 func (s *UserStore) CreateBatch(ctx context.Context, users []*User) error {
@@ -227,7 +227,7 @@ func (s *UserStore) CreateAndInvite(ctx context.Context, user *User, token strin
 	})
 }
 
-func (s *UserStore) createUserInvitation(ctx context.Context, tx pgx.Tx, token string, userId int64, exp time.Duration) error {
+func (s *UserStore) createUserInvitation(ctx context.Context, tx pgx.Tx, token string, userID int64, exp time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -237,7 +237,7 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx pgx.Tx, token s
 		VALUES ($1, $2, $3)
 	`
 
-	if _, err := tx.Exec(ctx, query, token, userId, time.Now().Add(exp)); err != nil {
+	if _, err := tx.Exec(ctx, query, token, userID, time.Now().Add(exp)); err != nil {
 		return err
 	}
 	return nil
@@ -264,21 +264,21 @@ func (s *UserStore) Update(ctx context.Context, tx pgx.Tx, user *User) error {
 	return nil
 }
 
-func (s *UserStore) Delete(ctx context.Context, userId int64) error {
+func (s *UserStore) Delete(ctx context.Context, id int64) error {
 	return withTx(s.db, ctx, func(tx pgx.Tx) error {
 		ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 		defer cancel()
 
 		deleteUserQuery := `DELETE FROM users WHERE id = $1`
 
-		res, err := tx.Exec(ctx, deleteUserQuery, userId)
+		res, err := tx.Exec(ctx, deleteUserQuery, id)
 		if err != nil {
 			return err
 		} else if res.RowsAffected() == 0 {
 			return ErrNotFound
 		}
 
-		if err := s.deleteUserInvitations(ctx, tx, userId); err != nil {
+		if err := s.deleteUserInvitations(ctx, tx, id); err != nil {
 			return err
 		}
 

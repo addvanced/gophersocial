@@ -24,7 +24,7 @@ type RoleStore struct {
 	logger *zap.SugaredLogger
 }
 
-func (s *RoleStore) GetByName(ctx context.Context, roleName string) (Role, error) {
+func (s *RoleStore) GetByName(ctx context.Context, roleName string) (*Role, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -46,10 +46,10 @@ func (s *RoleStore) GetByName(ctx context.Context, roleName string) (Role, error
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return Role{}, ErrNotFound
+			return nil, ErrNotFound
 		default:
-			return Role{}, err
+			return nil, err
 		}
 	}
-	return role, nil
+	return &role, nil
 }

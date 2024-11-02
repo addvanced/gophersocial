@@ -256,7 +256,7 @@ paths:
       summary: Creates a post
       tags:
       - posts
-  /posts/{postId}:
+  /posts/{id}:
     delete:
       consumes:
       - application/json
@@ -264,7 +264,7 @@ paths:
       parameters:
       - description: Post ID
         in: path
-        name: postId
+        name: id
         required: true
         type: integer
       produces:
@@ -292,7 +292,7 @@ paths:
       parameters:
       - description: Post ID
         in: path
-        name: postId
+        name: id
         required: true
         type: integer
       produces:
@@ -320,7 +320,7 @@ paths:
       parameters:
       - description: Post ID
         in: path
-        name: postId
+        name: id
         required: true
         type: integer
       - description: Post request payload
@@ -385,7 +385,7 @@ paths:
       summary: Fetches a user profile
       tags:
       - users
-  /users/{userId}/follow:
+  /users/{id}/follow:
     put:
       consumes:
       - application/json
@@ -393,7 +393,7 @@ paths:
       parameters:
       - description: User ID
         in: path
-        name: userId
+        name: id
         required: true
         type: integer
       produces:
@@ -414,7 +414,7 @@ paths:
       summary: Follows a user
       tags:
       - users
-  /users/{userId}/unfollow:
+  /users/{id}/unfollow:
     put:
       consumes:
       - application/json
@@ -422,7 +422,7 @@ paths:
       parameters:
       - description: User ID
         in: path
-        name: userId
+        name: id
         required: true
         type: integer
       produces:

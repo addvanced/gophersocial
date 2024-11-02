@@ -22,13 +22,13 @@ type FollowerStore struct {
 	logger *zap.SugaredLogger
 }
 
-func (s *FollowerStore) Follow(ctx context.Context, followerId int64, userId int64) error {
+func (s *FollowerStore) Follow(ctx context.Context, followerID int64, userID int64) error {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	query := `INSERT INTO followers (user_id, follower_id) VALUES ($1, $2)`
 
-	if _, err := s.db.Exec(ctx, query, userId, followerId); err != nil {
+	if _, err := s.db.Exec(ctx, query, userID, followerID); err != nil {
 		var pgError *pgconn.PgError
 		if errors.As(err, &pgError) {
 			switch pgError.Code {
@@ -44,13 +44,13 @@ func (s *FollowerStore) Follow(ctx context.Context, followerId int64, userId int
 	return nil
 }
 
-func (s *FollowerStore) Unfollow(ctx context.Context, followerId int64, userId int64) error {
+func (s *FollowerStore) Unfollow(ctx context.Context, followerID int64, userID int64) error {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	query := `DELETE FROM followers WHERE user_id = $1 AND follower_id = $2`
 
-	if res, err := s.db.Exec(ctx, query, userId, followerId); err != nil {
+	if res, err := s.db.Exec(ctx, query, userID, followerID); err != nil {
 		switch err {
 		case pgx.ErrNoRows:
 			return ErrNotFound

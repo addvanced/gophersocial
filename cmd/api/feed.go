@@ -27,6 +27,11 @@ import (
 //	@Router			/users/feed [get]
 func (app *application) getUserFeedHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	user := app.getAuthedUser(ctx)
+	if user == nil {
+		app.internalServerError(w, r, ErrUnauthorized)
+		return
+	}
 
 	pageable := store.Pageable{
 		Limit:  10,
@@ -45,7 +50,7 @@ func (app *application) getUserFeedHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	feed, err := app.store.Posts.GetUserFeed(ctx, int64(100), pageable, filter)
+	feed, err := app.store.Posts.GetUserFeed(ctx, user.ID, &pageable, filter)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

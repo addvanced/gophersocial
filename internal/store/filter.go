@@ -16,7 +16,7 @@ type FeedFilter struct {
 	Until  string   `json:"until" validate:"datetime=2006-01-02T15:04:05"`
 }
 
-func (f FeedFilter) Parse(r *http.Request) (FeedFilter, error) {
+func (f FeedFilter) Parse(r *http.Request) (*FeedFilter, error) {
 	q := r.URL.Query()
 
 	if tags := strings.TrimSpace(q.Get("tags")); tags != "" {
@@ -29,17 +29,17 @@ func (f FeedFilter) Parse(r *http.Request) (FeedFilter, error) {
 
 	if since := strings.TrimSpace(q.Get("since")); since != "" {
 		if _, err := time.Parse(timeFormat, since); err != nil {
-			return f, fmt.Errorf("since must be in format '%s'", timeFormat)
+			return &f, fmt.Errorf("since must be in format '%s'", timeFormat)
 		}
 		f.Since = since
 	}
 
 	if until := strings.TrimSpace(q.Get("until")); until != "" {
 		if _, err := time.Parse(timeFormat, until); err != nil {
-			return f, fmt.Errorf("until must be in format '%s'", timeFormat)
+			return &f, fmt.Errorf("until must be in format '%s'", timeFormat)
 		}
 		f.Until = until
 	}
 
-	return f, nil
+	return &f, nil
 }

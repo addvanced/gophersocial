@@ -24,8 +24,8 @@ var (
 type Storage struct {
 	Logger *zap.SugaredLogger
 	Posts  interface {
-		GetByID(context.Context, int64) (Post, error)
-		GetUserFeed(context.Context, int64, Pageable, FeedFilter) ([]PostWithMetadata, error)
+		GetByID(context.Context, int64) (*Post, error)
+		GetUserFeed(context.Context, int64, *Pageable, *FeedFilter) ([]PostWithMetadata, error)
 
 		Create(context.Context, *Post) error
 		Update(context.Context, *Post) error
@@ -34,8 +34,8 @@ type Storage struct {
 		CreateBatch(context.Context, []*Post) error // For DB seeding
 	}
 	Users interface {
-		GetByID(context.Context, int64) (User, error)
-		GetByEmail(context.Context, string) (User, error)
+		GetByID(context.Context, int64) (*User, error)
+		GetByEmail(context.Context, string) (*User, error)
 
 		Create(context.Context, pgx.Tx, *User) error
 		CreateAndInvite(ctx context.Context, user *User, token string, inviteExpire time.Duration) error
@@ -44,6 +44,7 @@ type Storage struct {
 		Delete(context.Context, int64) error
 
 		Activate(context.Context, string) error
+
 		CreateBatch(context.Context, []*User) error // For DB seeding
 	}
 	Comments interface {
@@ -54,14 +55,13 @@ type Storage struct {
 		CreateBatch(context.Context, []*Comment) error // For DB seeding
 	}
 	Follow interface {
-		Follow(ctx context.Context, followerId int64, userId int64) error
-		Unfollow(ctx context.Context, followerId int64, userId int64) error
-		//Followers(context.Context, int64) ([]User, error)
+		Follow(ctx context.Context, followerID int64, userID int64) error
+		Unfollow(ctx context.Context, followerID int64, userID int64) error
 
 		CreateBatch(context.Context, []*Follower) error // For DB seeding
 	}
 	Roles interface {
-		GetByName(context.Context, string) (Role, error)
+		GetByName(context.Context, string) (*Role, error)
 	}
 }
 

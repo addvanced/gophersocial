@@ -36,7 +36,7 @@ type PostStore struct {
 	logger *zap.SugaredLogger
 }
 
-func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Pageable, filter FeedFilter) ([]PostWithMetadata, error) {
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, pageable *Pageable, filter *FeedFilter) ([]PostWithMetadata, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -58,7 +58,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Page
 			f.follower_id
 		FROM followers f
 		WHERE f.user_id = `)
-	q.Param(userId)
+	q.Param(userID)
 
 	q.Query(`) f ON p.user_id = f.follower_id
 	LEFT JOIN (
@@ -69,7 +69,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userId int64, pageable Page
 	) c ON c.post_id = p.id
 	LEFT JOIN users u ON p.user_id = u.id
 	WHERE (p.user_id = `)
-	q.Param(userId)
+	q.Param(userID)
 	q.Query(` OR f.follower_id IS NOT NULL)`)
 
 	if sinceStr := strings.TrimSpace(filter.Since); sinceStr != "" {
@@ -164,7 +164,7 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	return nil
 }
 
-func (s *PostStore) GetByID(ctx context.Context, postId int64) (Post, error) {
+func (s *PostStore) GetByID(ctx context.Context, id int64) (*Post, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -175,7 +175,7 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (Post, error) {
 	`
 
 	var post Post
-	err := s.db.QueryRow(ctx, query, postId).Scan(
+	err := s.db.QueryRow(ctx, query, id).Scan(
 		&post.ID,
 		&post.Title,
 		&post.Content,
@@ -188,12 +188,12 @@ func (s *PostStore) GetByID(ctx context.Context, postId int64) (Post, error) {
 	if err != nil {
 		switch err {
 		case pgx.ErrNoRows:
-			return Post{}, ErrNotFound
+			return nil, ErrNotFound
 		default:
-			return Post{}, err
+			return nil, err
 		}
 	}
-	return post, nil
+	return &post, nil
 }
 
 func (s *PostStore) Update(ctx context.Context, post *Post) error {
@@ -218,13 +218,13 @@ func (s *PostStore) Update(ctx context.Context, post *Post) error {
 	return nil
 }
 
-func (s *PostStore) Delete(ctx context.Context, postId int64) error {
+func (s *PostStore) Delete(ctx context.Context, id int64) error {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	query := `DELETE FROM posts WHERE id = $1`
 
-	res, err := s.db.Exec(ctx, query, postId)
+	res, err := s.db.Exec(ctx, query, id)
 	if err != nil {
 		return err
 	} else if res.RowsAffected() == 0 {
