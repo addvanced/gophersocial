@@ -11,6 +11,8 @@ import (
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
+	"github.com/addvanced/gophersocial/internal/store/cache"
+	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 )
 
@@ -85,6 +87,16 @@ func main() {
 			env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			env.GetDuration("DB_MAX_IDLE_TIME", 15*time.Minute),
 		),
+		redis: cache.NewRedisConfig(
+			env.GetBool("REDIS_ENABLED", false),
+			env.GetString("REDIS_HOST", "localhost"),
+			env.GetInt("REDIS_PORT", 6379),
+			env.GetString("REDIS_PASSWORD", ""),
+			env.GetInt("REDIS_DB", 0),
+			env.GetDuration("REDIS_TTL", time.Minute),
+			env.GetDuration("REDIS_TTL_USERS", env.GetDuration("REDIS_TTL", time.Minute)),
+			env.GetDuration("REDIS_TTL_POSTS", env.GetDuration("REDIS_TTL", time.Minute)),
+		),
 	}
 
 	// Logger
@@ -103,7 +115,17 @@ func main() {
 	defer db.Close()
 	logger.Infoln("Database connection pool established")
 
+	// Cache
+	var rdsDB *redis.Client
+	if cfg.redis.Enabled() {
+		rdsDB = cache.NewRedisClient(&cfg.redis)
+		logger.Infoln("Redis connection pool established")
+	} else {
+		logger.Warnln("Redis cache is disabled")
+	}
+
 	store := store.NewStorage(db, logger)
+	cacheStore := cache.NewRedisStorage(&cfg.redis, rdsDB)
 
 	mailer := mailer.NewResend(
 		cfg.mail.fromName,
@@ -120,6 +142,7 @@ func main() {
 	app := &application{
 		config:        cfg,
 		store:         store,
+		cacheStorage:  cacheStore,
 		mailer:        mailer,
 		authenticator: jwtAuthenticator,
 		logger:        logger,

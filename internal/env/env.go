@@ -25,7 +25,7 @@ func GetInt(key string, fallback int) int {
 
 func GetBool(key string, fallback bool) bool {
 	if val, found := os.LookupEnv(key); found {
-		if boolVal, err := strconv.ParseBool(strings.TrimSpace(val)); err == nil {
+		if boolVal, err := strconv.ParseBool(strings.TrimSpace(strings.ToLower(val))); err == nil {
 			return boolVal
 		}
 	}

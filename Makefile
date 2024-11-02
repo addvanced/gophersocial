@@ -5,11 +5,11 @@ DATABASE_CONNSTR := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$
 
 .PHONY: db/start
 db/start:
-	@docker compose up -d
+	@docker compose up -d gophersocial_postgres
 
 .PHONY: db/stop
 db/stop:
-	@docker compose down
+	@docker compose down gophersocial_postgres
 
 .PHONY: db/migrate/create
 db/migrate/create:
@@ -57,6 +57,14 @@ db/reset:
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DATABASE_CONNSTR) down -all
 	@make db/migrate/up
 	@make db/seed
+
+.PHONY: infra/start
+infra/start:
+	@docker compose up -d
+
+.PHONY: infra/stop
+infra/stop:
+	@docker compose down
 
 .PHONY: docs
 docs:

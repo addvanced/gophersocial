@@ -1,16 +1,42 @@
 services:
-  gophersocial_postgres:
+  gophersocial-postgres:
     image: postgres:16.3
-    restart: always
-    container_name: gophersocial_postgres
-    environment:
-      POSTGRES_USER: socialuser
-      POSTGRES_PASSWORD: socialpassword
-      POSTGRES_DB: gophersocial
+    container_name: gophersocial-postgres
     ports:
-      - "5437:5432"
+      - "${DB_PORT}:5432"
+    restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+  gophersocial-redis:
+    image: redis:6.2-alpine
+    container_name: gophersocial-redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    volumes: 
+      - redis_data:/data
+
+  gophersocial-redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: gophersocial-redis-commander
+    hostname: redis-commander
+    ports:
+      - "8081:8081"
+    restart: always
+    platform: linux/amd64
+    depends_on:
+      - gophersocial-redis
+    environment:
+      REDIS_HOST: gophersocial-redis
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
 volumes:
   db_data:
+  redis_data:

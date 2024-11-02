@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/addvanced/gophersocial/internal/store"
+	"github.com/go-redis/redis/v8"
 )
 
 const postCtxKey ctxKey = "post"
@@ -160,6 +161,12 @@ func (app *application) updatePostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := app.cacheStorage.Posts.Delete(ctx, post.ID); err != nil {
+		if !errors.Is(err, redis.Nil) {
+			app.logger.Warnw("could not delete post from cache", "postID", post.ID, "error", err)
+		}
+	}
+
 	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 	}
@@ -197,6 +204,10 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := app.cacheStorage.Posts.Delete(ctx, post.ID); err != nil {
+		app.logger.Warnw("could not delete post from cache", "postID", post.ID, "error", err)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -210,7 +221,7 @@ func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		post, err := app.store.Posts.GetByID(ctx, postID)
+		post, err := app.getPost(ctx, postID)
 		if err != nil {
 			switch err {
 			case store.ErrNotFound:
@@ -224,6 +235,38 @@ func (app *application) addPostToCtxMiddleware(next http.Handler) http.Handler {
 		postCtx := context.WithValue(ctx, postCtxKey, post)
 		next.ServeHTTP(w, r.WithContext(postCtx))
 	})
+}
+
+func (app *application) getPost(ctx context.Context, id int64) (*store.Post, error) {
+	if !app.config.redis.Enabled() {
+		return app.store.Posts.GetByID(ctx, id)
+	}
+
+	post, err := app.cacheStorage.Posts.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			app.logger.Warnw("post not found in cache", "postID", id)
+		} else {
+			app.logger.Errorw("could not get post from cache", "postID", id, "error", err)
+		}
+	} else if post != nil {
+		app.logger.Infow("cache hit for post", "postID", id)
+		return post, nil
+	}
+
+	app.logger.Infow("fetching post from DB", "postDB", id)
+	post, err = app.store.Posts.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := app.cacheStorage.Posts.Set(ctx, post); err != nil {
+		app.logger.Warnw("could not set post in cache", "postID", post.ID, "error", err)
+	} else {
+		app.logger.Infow("post set in cache", "userID", post.ID)
+	}
+
+	return post, nil
 }
 
 func (app *application) getPostFromCtx(ctx context.Context) *store.Post {

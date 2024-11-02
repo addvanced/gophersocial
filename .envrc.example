@@ -33,7 +33,17 @@ export DB_HOST=localhost
 export DB_PORT=5432
 export DB_NAME=gophersocial
 export DB_SSL_MODE=disable
-
 export DB_MAX_OPEN_CONNS=10
 export DB_MAX_IDLE_CONNS=10
 export DB_MAX_LIFETIME_CONNS="15m"
+
+# Redis Cache
+export REDIS_ENABLED=false
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export REDIS_DB=0
+export REDIS_PASSWORD="redispassword"
+export REDIS_TTL="1m"
+# Redis Cache -> Users/Posts
+export REDIS_TTL_USERS="1m"
+export REDIS_TTL_POSTS="5m"

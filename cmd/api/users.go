@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/addvanced/gophersocial/internal/store"
+	"github.com/go-redis/redis/v8"
 )
 
 var (
@@ -41,7 +42,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := app.store.Users.GetByID(ctx, userID)
+	user, err := app.getUser(ctx, userID)
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
@@ -184,6 +185,38 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 	if err := app.jsonResponse(w, http.StatusAccepted, nil); err != nil {
 		app.internalServerError(w, r, err)
 	}
+}
+
+func (app *application) getUser(ctx context.Context, id int64) (*store.User, error) {
+	if !app.config.redis.Enabled() {
+		return app.store.Users.GetByID(ctx, id)
+	}
+
+	user, err := app.cacheStorage.Users.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			app.logger.Warnw("user not found in cache", "userID", id)
+		} else {
+			app.logger.Errorw("could not get user from cache", "userID", id, "error", err)
+		}
+	} else if user != nil {
+		app.logger.Infow("cache hit for user", "userID", id)
+		return user, nil
+	}
+
+	app.logger.Infow("fetching user from DB", "userID", id)
+	user, err = app.store.Users.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := app.cacheStorage.Users.Set(ctx, user); err != nil {
+		app.logger.Warnw("could not set user in cache", "userID", user.ID, "error", err)
+	} else {
+		app.logger.Infow("user set in cache", "userID", user.ID)
+	}
+
+	return user, nil
 }
 
 func (app *application) getAuthedUser(ctx context.Context) *store.User {

@@ -15,6 +15,7 @@ import (
 	"github.com/addvanced/gophersocial/internal/env"
 	"github.com/addvanced/gophersocial/internal/mailer"
 	"github.com/addvanced/gophersocial/internal/store"
+	"github.com/addvanced/gophersocial/internal/store/cache"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -29,6 +30,7 @@ type ctxKey string
 type application struct {
 	config        config
 	store         store.Storage
+	cacheStorage  cache.Storage
 	mailer        mailer.Client
 	authenticator auth.Authenticator
 	logger        *zap.SugaredLogger
@@ -40,9 +42,10 @@ type config struct {
 	apiURL      string
 	frontendURL string
 
-	mail mailConfig
-	auth authConfig
-	db   db.PostgresConfig
+	mail  mailConfig
+	auth  authConfig
+	db    db.PostgresConfig
+	redis cache.RedisConfig
 }
 
 type mailConfig struct {
