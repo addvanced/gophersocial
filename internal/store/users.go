@@ -24,15 +24,14 @@ var (
 )
 
 type User struct {
-	ID        int64     `json:"id"`
+	BaseEntity
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	Password  password  `json:"-"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 	IsActive  bool      `json:"is_active"`
 	RoleID    int64     `json:"-"`
 	Role      Role      `json:"role"`
+	UpdatedAt time.Time `json:"updated_at"`
 } // @name User
 
 type password struct {

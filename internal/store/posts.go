@@ -14,7 +14,7 @@ import (
 )
 
 type Post struct {
-	ID        int64     `json:"id"`
+	BaseEntity
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	Tags      []string  `json:"tags"`
@@ -22,7 +22,6 @@ type Post struct {
 	User      User      `json:"user"`
 	Comments  []Comment `json:"comments"`
 	Version   int       `json:"version"`
-	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 } // @name Post
 

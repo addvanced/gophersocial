@@ -8,30 +8,36 @@ import (
 )
 
 type Storage struct {
-	Enabed bool
-
 	Users interface {
-		Get(context.Context, int64) (*store.User, error)
-		Set(context.Context, *store.User) error
-		Delete(context.Context, int64) error
+		CacheStorer[*store.User]
 	}
 	Posts interface {
-		Get(context.Context, int64) (*store.Post, error)
-		Set(context.Context, *store.Post) error
-		Delete(context.Context, int64) error
+		CacheStorer[*store.Post]
+	}
+	Comments interface {
+		CacheStorer[*store.Comment]
+		GetByPostID(context.Context, int64) ([]store.Comment, error)
+		SetByPostID(context.Context, int64, []store.Comment) error
+		DeleteByPostID(context.Context, int64) error
+		DeleteCommentByIDAndPostID(ctx context.Context, id int64, postID int64) error
 	}
 }
 
 func NewRedisStorage(cfg *RedisConfig, rdb *redis.Client) Storage {
 	return Storage{
-		Enabed: cfg.Enabled(),
-		Users: &UserStore{
+		Users: &CacheStore[*store.User]{
 			rdb: rdb,
 			ttl: cfg.usersTTL,
 		},
-		Posts: &PostStore{
+		Posts: &CacheStore[*store.Post]{
 			rdb: rdb,
 			ttl: cfg.postsTTL,
+		},
+		Comments: &CommentStore{
+			CacheStore[*store.Comment]{
+				rdb: rdb,
+				ttl: cfg.ttl,
+			},
 		},
 	}
 }

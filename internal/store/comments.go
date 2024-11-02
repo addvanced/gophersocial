@@ -10,13 +10,12 @@ import (
 )
 
 type Comment struct {
-	ID        int64     `json:"id"`
-	PostID    int64     `json:"post_id"`
-	UserID    int64     `json:"user_id"`
-	Content   string    `json:"content"`
-	User      User      `json:"user"`
-	Post      Post      `json:"post" swaggerignore:"true"`
-	CreatedAt time.Time `json:"created_at"`
+	BaseEntity
+	PostID  int64  `json:"post_id"`
+	UserID  int64  `json:"user_id"`
+	Content string `json:"content"`
+	User    User   `json:"user"`
+	Post    Post   `json:"post" swaggerignore:"true"`
 } // @name Comment
 
 type CommentStore struct {

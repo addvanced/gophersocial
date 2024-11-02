@@ -153,10 +153,10 @@ func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Check if the provided password matches the stored hash
-	/*if err := user.Password.Compare(payload.Password); err != nil {
+	if err := user.Password.Compare(payload.Password); err != nil {
 		app.unauthorizedErrorResponse(w, r, err)
 		return
-	}*/
+	}
 
 	// Generate a new token, and add claims to it
 	iat := time.Now()

@@ -23,6 +23,41 @@ type UpdatePostRequest struct {
 	Content *string `json:"content" validate:"omitempty,min=3,max=1000"`
 } //	@name	CreatePostRequest
 
+// getPostHandler godoc
+//
+//	@Summary		Fetches a post
+//	@Description	Fetches a post by ID
+//	@Tags			posts
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"Post ID"
+//	@Success		200	{object}	Post
+//	@Failure		404	{object}	error
+//	@Failure		500	{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/posts/{id} [get]
+func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	post := app.getPostFromCtx(ctx)
+	if post == nil {
+		app.internalServerError(w, r, errors.New("could not find post"))
+		return
+	}
+
+	comments, err := app.getPostComments(ctx, post.ID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	post.Comments = comments
+
+	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
 // createPostHandler godoc
 //
 //	@Summary		Creates a post
@@ -69,41 +104,11 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if err := app.cacheStorage.Posts.Set(ctx, post); err != nil {
+		app.logger.Warnw("could not set post in cache", "postID", post.ID, "error", err)
+	}
+
 	if err := app.jsonResponse(w, http.StatusCreated, post); err != nil {
-		app.internalServerError(w, r, err)
-	}
-}
-
-// getPostHandler godoc
-//
-//	@Summary		Fetches a post
-//	@Description	Fetches a post by ID
-//	@Tags			posts
-//	@Accept			json
-//	@Produce		json
-//	@Param			id	path		int	true	"Post ID"
-//	@Success		200	{object}	Post
-//	@Failure		404	{object}	error
-//	@Failure		500	{object}	error
-//	@Security		ApiKeyAuth
-//	@Router			/posts/{id} [get]
-func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	post := app.getPostFromCtx(ctx)
-	if post == nil {
-		app.internalServerError(w, r, errors.New("could not find post"))
-		return
-	}
-
-	comments, err := app.store.Comments.GetByPostID(ctx, post.ID)
-	if err != nil {
-		app.internalServerError(w, r, err)
-		return
-	}
-	post.Comments = comments
-
-	if err := app.jsonResponse(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }
@@ -208,6 +213,10 @@ func (app *application) deletePostHandler(w http.ResponseWriter, r *http.Request
 		app.logger.Warnw("could not delete post from cache", "postID", post.ID, "error", err)
 	}
 
+	if err := app.cacheStorage.Comments.DeleteByPostID(ctx, post.ID); err != nil {
+		app.logger.Warnw("could not delete comments from cache", "postID", post.ID, "error", err)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -249,15 +258,14 @@ func (app *application) getPost(ctx context.Context, id int64) (*store.Post, err
 		} else {
 			app.logger.Errorw("could not get post from cache", "postID", id, "error", err)
 		}
-	} else if post != nil {
-		app.logger.Infow("cache hit for post", "postID", id)
-		return post, nil
 	}
 
-	app.logger.Infow("fetching post from DB", "postDB", id)
-	post, err = app.store.Posts.GetByID(ctx, id)
-	if err != nil {
-		return nil, err
+	if post == nil {
+		app.logger.Infow("fetching post from DB", "postDB", id)
+		post, err = app.store.Posts.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := app.cacheStorage.Posts.Set(ctx, post); err != nil {
@@ -267,6 +275,37 @@ func (app *application) getPost(ctx context.Context, id int64) (*store.Post, err
 	}
 
 	return post, nil
+}
+
+func (app *application) getPostComments(ctx context.Context, postID int64) ([]store.Comment, error) {
+	if !app.config.redis.Enabled() {
+		return app.store.Comments.GetByPostID(ctx, postID)
+	}
+
+	comments, err := app.cacheStorage.Comments.GetByPostID(ctx, postID)
+	if err == nil {
+		return comments, nil
+	}
+
+	if errors.Is(err, redis.Nil) {
+		app.logger.Warnw("comments not found in cache", "postID", postID)
+	} else {
+		app.logger.Errorw("could not get comments from cache", "postID", postID, "error", err)
+	}
+
+	app.logger.Infow("fetching comments from DB", "postID", postID)
+	comments, err = app.store.Comments.GetByPostID(ctx, postID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := app.cacheStorage.Comments.SetByPostID(ctx, postID, comments); err != nil {
+		app.logger.Warnw("could not set comments in cache", "postID", postID, "error", err)
+	} else {
+		app.logger.Infow("comments set in cache", "postID", postID)
+	}
+
+	return comments, nil
 }
 
 func (app *application) getPostFromCtx(ctx context.Context) *store.Post {
