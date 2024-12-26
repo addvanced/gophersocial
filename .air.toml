@@ -1,14 +1,14 @@
 root = "."
 testdata_dir = "testdata"
-tmp_dir = "bin"
+tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  bin = "./bin/main"
-  cmd = "go build -o ./bin/main ./cmd/api"
-  delay = 1000
-  exclude_dir = ["assets", "bin", "vendor", "testdata", "web", "docs", "scripts"]
-  exclude_file = []
+  bin = "./tmp/main"
+  cmd = "make air/build"
+  delay = 5000
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "web", "docs", "scripts"]
+  exclude_file = ["Makefile"]
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
@@ -20,8 +20,8 @@ tmp_dir = "bin"
   log = "build-errors.log"
   poll = false
   poll_interval = 0
-  post_cmd = ["make infra/stop"]
-  pre_cmd = ["make docs && make infra/start"]
+  post_cmd = ["make air/stop"]
+  pre_cmd = []
   rerun = false
   rerun_delay = 500
   send_interrupt = false
@@ -39,7 +39,7 @@ tmp_dir = "bin"
   time = false
 
 [misc]
-  clean_on_exit = false
+  clean_on_exit = true
 
 [proxy]
   app_port = 0
