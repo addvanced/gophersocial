@@ -8,14 +8,14 @@ import (
 )
 
 func GetString(key, fallback string) string {
-	if val, found := os.LookupEnv(key); found {
+	if val, found := lookupEnv(key); found {
 		return val
 	}
 	return fallback
 }
 
 func GetInt(key string, fallback int) int {
-	if val, found := os.LookupEnv(key); found {
+	if val, found := lookupEnv(key); found {
 		if intVal, err := strconv.Atoi(val); err == nil {
 			return intVal
 		}
@@ -24,8 +24,8 @@ func GetInt(key string, fallback int) int {
 }
 
 func GetBool(key string, fallback bool) bool {
-	if val, found := os.LookupEnv(key); found {
-		if boolVal, err := strconv.ParseBool(strings.TrimSpace(strings.ToLower(val))); err == nil {
+	if val, found := lookupEnv(key); found {
+		if boolVal, err := strconv.ParseBool(strings.ToLower(val)); err == nil {
 			return boolVal
 		}
 	}
@@ -33,10 +33,19 @@ func GetBool(key string, fallback bool) bool {
 }
 
 func GetDuration(key string, fallback time.Duration) time.Duration {
-	if val, found := os.LookupEnv(key); found {
-		if durationVal, err := time.ParseDuration(val); err == nil {
+	if val, found := lookupEnv(key); found {
+		if durationVal, err := time.ParseDuration(strings.ToLower(val)); err == nil {
 			return durationVal
 		}
 	}
 	return fallback
+}
+
+func lookupEnv(key string) (string, bool) {
+	val := cleanString(os.Getenv(cleanString(key)))
+	return val, len(val) > 0
+}
+
+func cleanString(str string) string {
+	return strings.TrimSpace(strings.Trim(str, "\""))
 }

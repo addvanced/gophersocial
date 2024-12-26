@@ -1,25 +1,25 @@
-export ENVIRONMENT="development"
+export ENVIRONMENT=development
 
 # HTTP Server
-export ADDR=":8080"
-export EXTERNAL_URL="localhost:8080"
+export ADDR=:8080
+export EXTERNAL_URL=localhost:8080
 export FRONTEND_URL="http://localhost:5173"
-export TIMEOUT_WRITE="30s"
-export TIMEOUT_READ="10s"
-export TIMEOUT_IDLE="1m"
+export TIMEOUT_WRITE=30s
+export TIMEOUT_READ=10s
+export TIMEOUT_IDLE=1m
 
 # Auth
 # Auth -> Basic
-export BASIC_AUTH_USERNAME="admin"
-export BASIC_AUTH_PASSWORD="admin"
+export BASIC_AUTH_USERNAME=admin
+export BASIC_AUTH_PASSWORD=admin
 # Auth -> JWT
 export JWT_TOKEN_SECRET="a_super_secret_gopher_key"
-export JWT_TOKEN_ISSUER="gophersocial"
-export JWT_TOKEN_EXPIRE="24h"
+export JWT_TOKEN_ISSUER=gophersocial
+export JWT_TOKEN_EXPIRE=24h
 
 # Mail
-export USER_INVITE_EXPIRE="48h"
-export MAILER_FROM_NAME="GopherSocial"
+export USER_INVITE_EXPIRE=48h
+export MAILER_FROM_NAME=GopherSocial
 export MAILER_FROM_EMAIL="noreply@email.com"
 # Mail -> Resend
 export RESEND_API_KEY="re_Api_Key"
@@ -35,15 +35,15 @@ export DB_NAME=gophersocial
 export DB_SSL_MODE=disable
 export DB_MAX_OPEN_CONNS=10
 export DB_MAX_IDLE_CONNS=10
-export DB_MAX_LIFETIME_CONNS="15m"
+export DB_MAX_LIFETIME_CONNS=15m
 
 # Redis Cache
-export REDIS_ENABLED=false
+export REDIS_ENABLED="false"
 export REDIS_HOST=localhost
 export REDIS_PORT=6379
 export REDIS_DB=0
-export REDIS_PASSWORD="redispassword"
-export REDIS_TTL="1m"
+export REDIS_PASSWORD=redispassword
+export REDIS_TTL=1m
 # Redis Cache -> Users/Posts
-export REDIS_TTL_USERS="1m"
-export REDIS_TTL_POSTS="5m"
+export REDIS_TTL_USERS=1m
+export REDIS_TTL_POSTS=5m
